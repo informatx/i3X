@@ -364,17 +364,18 @@ async def update_object_history(
 #######################################
 ######## Subscription Methods #########
 #######################################
-async def subscribe(base_url: str = None, qos: str = None):
+async def subscribe(base_url: str = None):
     """
     Calls Create Subscription (RFC 4.2.3.1)
+    Creates a subscription that starts in queue mode.
+    Use /register to add objects, then /stream for SSE or /sync for queued updates.
     :param base_url: base URL of API method being called
-    :param qos: Subscription qos
     :return: Json response from subscribe (containing subscription ID)
     """
     if base_url is None:
         raise TypeError("base_url cannot be None")
     url = f"{base_url}/subscriptions"
-    return await post(url, {"qos": qos})
+    return await post(url, {})
 
 
 async def register(
@@ -513,7 +514,7 @@ async def unsubscribe(base_url: str = None, subscription_id: str = None):
 async def main():
     try:
         print("Welcome to the CESMII I3X API Test Client.")
-        default_url = "http://localhost:8885/i3x"
+        default_url = "http://localhost:8080"
         base_url = input(
             f"Enter the base url (or press enter to leave as default '{default_url}'): "
         ).strip()
@@ -753,8 +754,8 @@ async def main():
                         "3: Create Subscription\n"
                         "4: Register Objects\n"
                         "5: Unregister Objects\n"
-                        "6: Sync (QoS2 Subscription)\n"
-                        "7: Stream (QoS0 Subscription)\n"
+                        "6: Sync\n"
+                        "7: Stream (Open SSE)\n"
                         "8: Delete Subscription\n"
                         "X: Quit\n"
                     )
@@ -780,10 +781,7 @@ async def main():
                             ):
                                 print(f"Subscription ID '{subscription_id}' not found")
                     elif user_selection == "3":
-                        print("Choose Subscription Type:\n0: QoS0\n2: QoS2")
-                        user_selection = get_user_selection(["0", "2"])
-                        qos = "QoS" + user_selection
-                        pretty_print_json(await subscribe(base_url, qos))
+                        pretty_print_json(await subscribe(base_url))
                     elif user_selection == "4":
                         subscription_id = input("Enter Subscription ID: ").strip()
                         element_ids = []

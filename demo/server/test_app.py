@@ -80,29 +80,34 @@ class TestI3XEndpoints(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
 
-    # TODO this probably belongs on the client side and is more than a unit test, placing here so I have a place to test QoS0
+    # TODO this probably belongs on the client side and is more than a unit test, placing here so I have a place to test subscriptions
     def test_qos0_subscription_streaming(self):
-        # Step 1: Create a QoS0 subscription
-        response = self.client.post("/subscriptions", json={"qos": "QoS0"})
+        # Step 1: Create a subscription (no QoS parameter)
+        response = self.client.post("/subscriptions", json={})
         self.assertEqual(response.status_code, 200)
         subscription_id = response.json()["subscriptionId"]
         self.assertIsNotNone(subscription_id)
 
-        # Step 2: Register monitored items and start streaming
-        url = f"/subscriptions/{subscription_id}/objects"
+        # Step 2: Register monitored items
+        register_url = f"/subscriptions/{subscription_id}/register"
         payload = {"elementIds": ["sensor-001"]}
+        response = self.client.post(register_url, json=payload)
+        self.assertEqual(response.status_code, 200)
+
+        # Step 3: Start streaming
+        stream_url = f"/subscriptions/{subscription_id}/stream"
 
         # We will run the streaming request in a separate thread to allow timeout
         results = []
 
         def stream_reader():
-            with self.client.stream("POST", url, json=payload) as stream_resp:
+            with self.client.stream("GET", stream_url) as stream_resp:
                 self.assertEqual(stream_resp.status_code, 200)
                 count = 0
                 for line in stream_resp.iter_lines():
                     if line:
                         decoded = line.decode("utf-8")
-                        print("Received chunk:", decoded)  # <-- Add this line to print
+                        print("Received chunk:", decoded)
                         results.append(decoded)
                         count += 1
                         if count >= 3:  # read 3 update batches then stop
