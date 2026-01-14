@@ -16,11 +16,12 @@ from .utils import getSubscriptionValue
 # Not required, but showing what information is stored for simulated subscriptions
 class Subscription(BaseModel):
     subscriptionId: int
-    qos: str
     created: str
     maxDepth: int = 1  # Depth to follow HasComponent relationships (0=infinite, 1=no recursion, N=recurse N levels)
     monitoredItems: List[str] = []
-    pendingUpdates: List[Any] = []  # For QoS2, list of values to send
+    pendingUpdates: List[Any] = []  # Queue for updates (max 1000, FIFO)
+    max_queue_size: int = 1000
+    is_streaming: bool = False  # True when SSE connection is active
     # Exclude these fields from JSON serialization/schema
     handler: Callable[[Any], None] | None = Field(exclude=True, default=None)
     event_loop: Any | None = Field(exclude=True, default=None)
@@ -38,37 +39,69 @@ def get_data_source(request: Request) -> I3XDataSource:
     return request.app.state.data_source
 
 
-# RFC 4.2.3.1 - Create Subscription
-@subs.post("/subscriptions", response_model=CreateSubscriptionResponse)
-def create_subscription(request: Request, subscription: CreateSubscriptionRequest):
-    """Register a client for a new subscription with specified QoS"""
-
-    # Validate QoS
-    if subscription.qos not in ["QoS0", "QoS2"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported QoS level. Only QoS0 and QoS2 are supported.",
+# GET /subscriptions - List all subscriptions
+@subs.get("/subscriptions", summary="List Subscriptions", response_model=GetSubscriptionsResponse)
+def get_subscriptions(request: Request):
+    """List all subscriptions including their ID and settings (does not include registered objects)"""
+    subscriptions = []
+    for sub in request.app.state.I3X_DATA_SUBSCRIPTIONS:
+        subscriptions.append(
+            SubscriptionSummary(
+                subscriptionId=sub.subscriptionId,
+                created=sub.created
+            )
         )
+    return GetSubscriptionsResponse(subscriptionIds=subscriptions)
+
+
+# GET /subscriptions/{id} - Get a single subscription with full details
+@subs.get("/subscriptions/{subscriptionId}", summary="Get Subscription")
+def get_subscription(request: Request, subscriptionId: str):
+    """Get a single subscription including settings and registered objects"""
+    sub = next(
+        (
+            s
+            for s in request.app.state.I3X_DATA_SUBSCRIPTIONS
+            if str(s.subscriptionId) == str(subscriptionId)
+        ),
+        None,
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    return {
+        "subscriptionId": sub.subscriptionId,
+        "created": sub.created,
+        "isStreaming": sub.is_streaming,
+        "queuedUpdates": len(sub.pendingUpdates),
+        "objects": sub.monitoredItems
+    }
+
+
+# RFC 4.2.3.1 - Create Subscription
+@subs.post("/subscriptions", summary="Create Subscription", response_model=CreateSubscriptionResponse)
+def create_subscription(request: Request, subscription: CreateSubscriptionRequest):
+    """Create a new subscription. Monitoring starts when objects are registered via /register"""
 
     # For now make the subscription ID a simple index to make manual testing easy, but should be a UUID
     subscriptionId = str(len(request.app.state.I3X_DATA_SUBSCRIPTIONS))
     new_sub = Subscription(
         subscriptionId=subscriptionId,
-        qos=subscription.qos,
         created=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
     request.app.state.I3X_DATA_SUBSCRIPTIONS.append(new_sub)
 
     return CreateSubscriptionResponse(
-        subscriptionId=subscriptionId, message="Subscription created successfully"
+        subscriptionId=subscriptionId, message="Subscription created successfully."
     )
 
 
 # RFC 4.2.3.2 - Register Monitored Items
-@subs.post("/subscriptions/{subscriptionId}/objects")
-async def register_monitored_items(
+@subs.post("/subscriptions/{subscriptionId}/register", summary="Register Objects",)
+def register_objects(
     request: Request, subscriptionId: str, req: RegisterMonitoredItemsRequest
 ):
+    """Add a list of object to the subscription"""
     sub = next(
         (
             s
@@ -98,58 +131,117 @@ async def register_monitored_items(
         )
         all_element_ids.update([i["elementId"] for i in tree])
 
-    # Update the subscription
-    # Store maxDepth preference from the request
-    sub.maxDepth = req.maxDepth
-    # TODO right now this is additive, currently need to call delete and re-create the subscription entirely to remove items.
+    # Update the subscription (additive - adds to existing monitored items)
+    added_count = 0
     for eid in all_element_ids:
         if eid not in sub.monitoredItems:
             sub.monitoredItems.append(eid)
+            added_count += 1
 
-    # QoS0 setup
-    if sub.qos == "QoS0":
-        # If handler and streaming_response already exist, reuse them
-        if sub.handler is not None and sub.streaming_response is not None:
-            # Just update monitoredItems and return existing streaming response
-            return sub.streaming_response
+    return {
+        "message": f"Registered {added_count} objects to subscription.",
+        "totalObjects": len(sub.monitoredItems)
+    }
 
-        # Otherwise create queue, loop, handler, and streaming response once
-        queue = asyncio.Queue()
-        loop = asyncio.get_event_loop()
+# RFC 4.2.3.2 - Unregister Monitored Items
+@subs.post("/subscriptions/{subscriptionId}/unregister", summary="Unregister Objects",)
+def unregister_objects(
+    request: Request, subscriptionId: str, req: RegisterMonitoredItemsRequest
+):
+    """Remove a list of objects from the subscription"""
+    sub = next(
+        (
+            s
+            for s in request.app.state.I3X_DATA_SUBSCRIPTIONS
+            if str(s.subscriptionId) == str(subscriptionId)
+        ),
+        None,
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
 
-        async def event_stream():
-            while True:
-                update = await queue.get()
-                # Remove None values to match QoS2 behavior
-                filtered_update = {k: v for k, v in update.items() if v is not None}
-                yield json.dumps([filtered_update]) + "\n"
+    # Get data source
+    data_source = request.app.state.data_source
 
-        def push_update_to_client(update):
-            asyncio.run_coroutine_threadsafe(queue.put(update), loop)
+    # Collect all elementIds including descendants (same logic as register)
+    all_element_ids = set()
+    for eid in req.elementIds:
+        # Only process IDs that exist
+        if data_source.get_instance_by_id(eid):
+            tree = collect_instance_tree(
+                eid, req.maxDepth, 0, data_source.get_all_instances()
+            )
+            all_element_ids.update([i["elementId"] for i in tree])
 
-        sub.handler = push_update_to_client
-        sub.event_loop = loop
-        sub.streaming_response = StreamingResponse(
-            event_stream(), media_type="application/json"
-        )
+    # Remove from subscription (silently ignore IDs that aren't registered)
+    removed_count = 0
+    for eid in all_element_ids:
+        if eid in sub.monitoredItems:
+            sub.monitoredItems.remove(eid)
+            removed_count += 1
 
+    return {
+        "message": f"Unregistered {removed_count} objects from subscription."
+    }
+
+# GET /subscriptions/{id}/stream - Open SSE stream
+@subs.get("/subscriptions/{subscriptionId}/stream", summary="Stream Values (SSE)",)
+async def stream_subscription(request: Request, subscriptionId: str):
+    """Open a Server-Sent Events (SSE) stream. Switches from queue mode to streaming mode."""
+    sub = next(
+        (
+            s
+            for s in request.app.state.I3X_DATA_SUBSCRIPTIONS
+            if str(s.subscriptionId) == str(subscriptionId)
+        ),
+        None,
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # If handler and streaming_response already exist, reuse them
+    if sub.handler is not None and sub.streaming_response is not None:
         return sub.streaming_response
 
-    # QoS2 setup: initialize empty pending queue
-    if sub.qos == "QoS2":
-        return {
-            "message": "Monitored items registered (QoS2). Use /sync to poll for changes."
-        }
+    # Otherwise create queue, loop, handler, and streaming response once
+    queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
 
+    async def event_stream():
+        try:
+            while True:
+                update = await queue.get()
+                yield json.dumps([update]) + "\n"
+        except Exception as e:
+            print(f"[SSE] Stream ended: {e}")
+        finally:
+            # When stream disconnects, switch back to queue mode
+            sub.is_streaming = False
+            sub.handler = None
+            sub.event_loop = None
+            sub.streaming_response = None
+            print(f"[SSE] Subscription {subscriptionId} switched back to queue mode")
+
+    def push_update_to_client(update):
+        asyncio.run_coroutine_threadsafe(queue.put(update), loop)
+
+    # Switch to streaming mode
+    sub.is_streaming = True
+    sub.handler = push_update_to_client
+    sub.event_loop = loop
+    sub.streaming_response = StreamingResponse(
+        event_stream(), media_type="application/json"
+    )
+
+    # Clear the queue when switching to streaming (per requirements)
+    sub.pendingUpdates.clear()
+
+    return sub.streaming_response
 
 # RFC 4.2.3.3 Sync
-@subs.post(
-    "/subscriptions/{subscriptionId}/sync",
-    response_model=List[SyncResponseItem],
-    response_model_exclude_none=True
-)
-def sync_qos2(request: Request, subscriptionId: str):
-    """Sync changes for a QoS 2 subscription"""
+@subs.post("/subscriptions/{subscriptionId}/sync", summary="Sync Values", response_model=List[SyncResponseItem])
+def sync_subscription(request: Request, subscriptionId: str):
+    """Return and clear queued updates. Works when SSE stream is not active."""
 
     # Locate the subscription
     sub = next(
@@ -163,18 +255,14 @@ def sync_qos2(request: Request, subscriptionId: str):
     if not sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
 
-    if sub.qos != "QoS2":
-        raise HTTPException(
-            status_code=400, detail="Sync is only supported for QoS2 subscriptions"
-        )
-
+    # Return and clear the queue
     response = sub.pendingUpdates.copy()
     sub.pendingUpdates.clear()
     return response
 
 
 # 4.2.3.4 Unsubscribe by SubscriptionId
-@subs.delete("/subscriptions/{subscriptionId}")
+@subs.delete("/subscriptions/{subscriptionId}", summary="Delete Subscription",)
 def delete_subscription(request: Request, subscriptionId: str):
     removed = []
     not_found = []
@@ -200,9 +288,9 @@ def delete_subscription(request: Request, subscriptionId: str):
     }
 
 
-# Subscription thread responsible creating updated for items being monitored.
-# If QoS is QoS0, it will call the handler immediately to send updates
-# if QoS is QoS2, it will store the updates in a pending dictionary to be sent on the /sync call
+# Subscription thread responsible for creating updates for items being monitored.
+# If SSE is active (is_streaming=True), stream updates via handler
+# Otherwise, queue updates for retrieval via /sync (max 1000, FIFO)
 def handle_data_source_update(instance, value, I3X_DATA_SUBSCRIPTIONS, data_source):
     """Route updates from data sources to active subscriptions"""
     try:
@@ -218,16 +306,21 @@ def handle_data_source_update(instance, value, I3X_DATA_SUBSCRIPTIONS, data_sour
                 # Get the payload using the subscription's maxDepth preference
                 updateValue = getSubscriptionValue(instance, value, maxDepth=sub.maxDepth, data_source=data_source)
 
-
-                if sub.qos == "QoS0":
-                    # Immediate delivery via handler
-                    if sub.handler:
-                        try:
-                            sub.handler(updateValue)
-                        except Exception as e:
-                            print(f"[QoS0] Handler error: {e}")
-                elif sub.qos == "QoS2":
-                    # Queue for later sync
+                if sub.is_streaming and sub.handler:
+                    # Stream mode: immediate delivery via SSE handler
+                    try:
+                        sub.handler(updateValue)
+                    except Exception as e:
+                        print(f"[SSE] Handler error: {e}")
+                        # On error, switch back to queue mode
+                        sub.is_streaming = False
+                        sub.handler = None
+                else:
+                    # Queue mode: store for later /sync retrieval
+                    # Enforce FIFO with max queue size
+                    if len(sub.pendingUpdates) >= sub.max_queue_size:
+                        # Remove oldest item (FIFO)
+                        sub.pendingUpdates.pop(0)
                     sub.pendingUpdates.append(updateValue)
     except Exception as e:
         import traceback

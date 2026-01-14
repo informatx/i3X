@@ -138,13 +138,8 @@ class HistoricalUpdateResult(BaseModel):
     message: str
 
 
-class QoSLevel(str, Enum):
-    fire_and_forget = "QoS0"
-    guaranteed_delivery = "QoS2"
-
-
 class CreateSubscriptionRequest(BaseModel):
-    qos: QoSLevel
+    pass  # No fields needed - subscription starts monitoring on /register
 
 
 class CreateSubscriptionResponse(BaseModel):
@@ -172,7 +167,6 @@ class UnsubscribeRequest(BaseModel):
 
 class SubscriptionSummary(BaseModel):
     subscriptionId: int
-    qos: str
     created: str
 
 
