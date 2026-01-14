@@ -71,9 +71,9 @@ class TestI3XEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_object_definition_endpoint(self):
-        """Test RFC 4.1.8 - Object Definition (POST /objects/query)"""
+        """Test RFC 4.1.8 - Object Definition (POST /objects/list)"""
         # Test single elementId
-        response = self.client.post("/objects/query", json={"elementId": "cnc-001"})
+        response = self.client.post("/objects/list", json={"elementId": "cnc-001"})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -82,7 +82,7 @@ class TestI3XEndpoints(unittest.TestCase):
         self.assertTrue(data["results"][0]["success"])
 
         # Test non-existent object (returns success=false in results, not 404)
-        response = self.client.post("/objects/query", json={"elementId": "non-existent"})
+        response = self.client.post("/objects/list", json={"elementId": "non-existent"})
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(data["totalFailed"], 1)
@@ -90,7 +90,7 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_object_definition_batch(self):
         """Test RFC 4.1.8 - Object Definition batch query"""
-        response = self.client.post("/objects/query", json={
+        response = self.client.post("/objects/list", json={
             "elementIds": ["cnc-001", "cnc-001-spindle", "non-existent"]
         })
         data = response.json()
@@ -160,11 +160,11 @@ class TestI3XEndpoints(unittest.TestCase):
     def test_request_validation_errors(self):
         """Test request validation - must provide elementId or elementIds"""
         # Neither provided
-        response = self.client.post("/objects/query", json={})
+        response = self.client.post("/objects/list", json={})
         self.assertEqual(response.status_code, 422)
 
         # Both provided
-        response = self.client.post("/objects/query", json={
+        response = self.client.post("/objects/list", json={
             "elementId": "cnc-001",
             "elementIds": ["cnc-001-spindle"]
         })

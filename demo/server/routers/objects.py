@@ -41,7 +41,7 @@ def get_objects(
       
 
 # RFC 4.1.5 - Query Objects by ElementId
-@explore.post("/objects/query", summary="Query Objects by ElementId")
+@explore.post("/objects/list", summary="List Objects by ElementId")
 def query_objects_by_id(
     request_body: GetObjectsRequest,
     data_source: I3XDataSource = Depends(get_data_source),
