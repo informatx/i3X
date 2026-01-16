@@ -4,6 +4,7 @@ import threading
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from routers.namespaces import ns
 from routers.typeDefinitions import typeDefinitions
@@ -89,6 +90,15 @@ app = FastAPI(
     ),
     version=app_config.get("version", "1.0.0"),
     lifespan=lifespan,
+)
+
+# Add CORS middleware to handle cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Setup app state (data source will be set after config is loaded)
