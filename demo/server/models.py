@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Optional, List, Dict, Any, Union, Callable
 from datetime import datetime
 from enum import Enum
@@ -172,3 +172,59 @@ class SubscriptionSummary(BaseModel):
 
 class GetSubscriptionsResponse(BaseModel):
     subscriptionIds: List[SubscriptionSummary]
+
+
+# Request models for POST endpoints (GET to POST refactor)
+
+class ElementIdRequest(BaseModel):
+    """Base request model that accepts either a single elementId or multiple elementIds"""
+    elementId: Optional[str] = Field(None, description="Single element ID to query")
+    elementIds: Optional[List[str]] = Field(None, description="Array of element IDs to query")
+
+    @model_validator(mode='after')
+    def validate_element_ids(self):
+        """Ensure exactly one of elementId or elementIds is provided"""
+        if self.elementId is None and self.elementIds is None:
+            raise ValueError("Either 'elementId' or 'elementIds' must be provided")
+        if self.elementId is not None and self.elementIds is not None:
+            raise ValueError("Cannot specify both 'elementId' and 'elementIds'")
+        return self
+
+    def get_element_ids(self) -> List[str]:
+        """Helper to normalize to list regardless of input format"""
+        if self.elementId:
+            return [self.elementId]
+        return self.elementIds or []
+
+
+class GetObjectsRequest(ElementIdRequest):
+    """Request model for POST /objects/query"""
+    includeMetadata: bool = Field(default=False, description="Include full metadata in response")
+
+
+class GetRelatedObjectsRequest(ElementIdRequest):
+    """Request model for POST /objects/related"""
+    relationshiptype: Optional[str] = Field(default=None, description="Filter by relationship type")
+    includeMetadata: bool = Field(default=False, description="Include full metadata in response")
+
+
+class GetObjectValueRequest(ElementIdRequest):
+    """Request model for POST /objects/value"""
+    maxDepth: int = Field(default=1, ge=0, description="Controls recursion depth. 0=infinite, 1=no recursion")
+
+
+class GetObjectHistoryRequest(ElementIdRequest):
+    """Request model for POST /objects/history"""
+    startTime: Optional[str] = Field(default=None, description="ISO 8601 start time for filtering")
+    endTime: Optional[str] = Field(default=None, description="ISO 8601 end time for filtering")
+    maxDepth: int = Field(default=1, ge=0, description="Controls recursion depth. 0=infinite, 1=no recursion")
+
+
+class GetObjectTypesRequest(ElementIdRequest):
+    """Request model for POST /objecttypes/query"""
+    pass
+
+
+class GetRelationshipTypesRequest(ElementIdRequest):
+    """Request model for POST /relationshiptypes/query"""
+    pass

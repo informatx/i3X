@@ -10,6 +10,10 @@ from models import (
     UpdateRequest,
     HistoricalUpdateResult,
     HistoricalValueUpdate,
+    GetObjectsRequest,
+    GetRelatedObjectsRequest,
+    GetObjectValueRequest,
+    GetObjectHistoryRequest,
 )
 from data_sources.data_interface import I3XDataSource
 from datetime import datetime, timezone
@@ -36,64 +40,143 @@ def get_objects(
     return instances
       
 
-# RFC 4.1.5 - Single Object
-@explore.get("/objects/{elementId}", summary="Get Object")
-def get_objects_by_id(
-    elementId: str = Path(...),
-    includeMetadata: bool = Query(default=False),
-    data_source: I3XDataSource = Depends(get_data_source),
-) -> ObjectInstanceMinimal | ObjectInstance:
-    """Return an Object including it's value and metadata"""
-    instance = data_source.get_instance_by_id(elementId)
-
-    # Check if instance was found, return 404 if not
-    if not instance:
-        raise HTTPException(
-            status_code=404, detail=f"Instance with elementId '{elementId}' not found"
-        )
-
-    return getObject(instance, includeMetadata)
-
-# 4.1.6 Objects linked by Relationship Type
-@explore.get("/objects/{elementId}/related", summary="Get Related Objects")
-def get_related_objects(
-    elementId: str = Path(...),
-    relationshiptype: Optional[str] = Query(default=None),
-    includeMetadata: bool = Query(default=False),
+# RFC 4.1.5 - Query Objects by ElementId
+@explore.post("/objects/list", summary="List Objects by ElementId")
+def query_objects_by_id(
+    request_body: GetObjectsRequest,
     data_source: I3XDataSource = Depends(get_data_source),
 ):
-    """Return array of related objects for the requested ElementId"""
-    elementId = unquote(elementId)
-    related_objects = data_source.get_related_instances(elementId, relationshiptype)
-    # Format each related object consistently with getObject()
-    return [getObject(obj, includeMetadata) for obj in related_objects]
+    """
+    Return one or more Objects by elementId.
+
+    Accepts either:
+    - {"elementId": "..."} for single object
+    - {"elementIds": ["...", "..."]} for multiple objects
+
+    Returns array of results, each with success/failure status.
+    """
+    element_ids = request_body.get_element_ids()
+    results = []
+
+    for eid in element_ids:
+        instance = data_source.get_instance_by_id(eid)
+        if instance:
+            results.append({
+                "elementId": eid,
+                "success": True,
+                "data": getObject(instance, request_body.includeMetadata)
+            })
+        else:
+            results.append({
+                "elementId": eid,
+                "success": False,
+                "error": f"Instance with elementId '{eid}' not found"
+            })
+
+    return {
+        "results": results,
+        "totalRequested": len(element_ids),
+        "totalSuccess": sum(1 for r in results if r["success"]),
+        "totalFailed": sum(1 for r in results if not r["success"])
+    }
+
+# 4.1.6 Objects linked by Relationship Type
+@explore.post("/objects/related", summary="Query Related Objects")
+def query_related_objects(
+    request_body: GetRelatedObjectsRequest,
+    data_source: I3XDataSource = Depends(get_data_source),
+):
+    """
+    Return related objects for one or more elementIds.
+
+    Accepts either:
+    - {"elementId": "..."} for single object
+    - {"elementIds": ["...", "..."]} for multiple objects
+
+    Returns array of results, each with success/failure status.
+    """
+    element_ids = request_body.get_element_ids()
+    results = []
+
+    for eid in element_ids:
+        eid_decoded = unquote(eid)
+        instance = data_source.get_instance_by_id(eid_decoded)
+        if instance:
+            related_objects = data_source.get_related_instances(
+                eid_decoded,
+                request_body.relationshiptype
+            )
+            results.append({
+                "elementId": eid,
+                "success": True,
+                "data": [getObject(obj, request_body.includeMetadata) for obj in related_objects]
+            })
+        else:
+            results.append({
+                "elementId": eid,
+                "success": False,
+                "error": f"Instance with elementId '{eid}' not found"
+            })
+
+    return {
+        "results": results,
+        "totalRequested": len(element_ids),
+        "totalSuccess": sum(1 for r in results if r["success"]),
+        "totalFailed": sum(1 for r in results if not r["success"])
+    }
 
 
 # RFC 4.2.1.1 - Object Element LastKnown Value
-@query.get("/objects/{elementId}/value", summary="Get Last Known Value")
-def get_last_known_value(
-    elementId: str = Path(...),
-    maxDepth: int = Query(default=1, ge=0),
+@query.post("/objects/value", summary="Query Last Known Values")
+def query_last_known_values(
+    request_body: GetObjectValueRequest,
     data_source: I3XDataSource = Depends(get_data_source),
 ):
-    """Return last known value for an Object. If maxDepth=0, recursively includes all values from HasComponent children (infinite depth). Otherwise, recurses only to the specified depth (1=no recursion, just this element)."""
-    elementId = unquote(elementId)
+    """
+    Return last known value for one or more Objects.
 
-    # Lookup instance to verify it exists
-    instance = data_source.get_instance_by_id(elementId)
-    if not instance:
-        raise HTTPException(status_code=404, detail=f"Element '{elementId}' not found")
+    If maxDepth=0, recursively includes all values from HasComponent children (infinite depth).
+    Otherwise, recurses only to the specified depth (1=no recursion, just this element).
 
-    # Get the most recent value with optional recursion based on maxDepth
-    # returnHistory=False ensures only the most recent value is returned
-    value = data_source.get_instance_values_by_id(elementId, maxDepth=maxDepth, returnHistory=False)
+    Accepts either:
+    - {"elementId": "..."} for single object
+    - {"elementIds": ["...", "..."]} for multiple objects
 
-    # Include required object metadata (RFC 3.1.1) including isComposition
-    # so clients know if there are more children to fetch
+    Returns array of results, each with success/failure status.
+    """
+    element_ids = request_body.get_element_ids()
+    results = []
+
+    for eid in element_ids:
+        eid_decoded = unquote(eid)
+        instance = data_source.get_instance_by_id(eid_decoded)
+        if instance:
+            value = data_source.get_instance_values_by_id(
+                eid_decoded,
+                maxDepth=request_body.maxDepth,
+                returnHistory=False
+            )
+            results.append({
+                "elementId": eid,
+                "success": True,
+                "data": {
+                    "elementId": eid,
+                    "isComposition": instance.get("isComposition", False),
+                    "value": value
+                }
+            })
+        else:
+            results.append({
+                "elementId": eid,
+                "success": False,
+                "error": f"Element '{eid}' not found"
+            })
+
     return {
-        "elementId": elementId,
-        "isComposition": instance.get("isComposition", False),
-        "value": value
+        "results": results,
+        "totalRequested": len(element_ids),
+        "totalSuccess": sum(1 for r in results if r["success"]),
+        "totalFailed": sum(1 for r in results if not r["success"])
     }
 
 # 4.2.2.1 Object Element LastKnownValue
@@ -109,27 +192,55 @@ def update_object(
 
 
 # RFC 4.2.1.2 - Object Element HistoricalValue
-@query.get("/objects/{elementId}/history", response_model=Any, summary="Get Historical Values")
-def get_historical_values(
-    elementId: str = Path(...),
-    startTime: Optional[str] = Query(default=None),
-    endTime: Optional[str] = Query(default=None),
-    maxDepth: int = Query(default=1, ge=0),
+@query.post("/objects/history", response_model=Any, summary="Query Historical Values")
+def query_historical_values(
+    request_body: GetObjectHistoryRequest,
     data_source: I3XDataSource = Depends(get_data_source),
 ):
-    """Get the historical values for one or more Objects. If maxDepth=0, recursively includes all values from HasComponent children (infinite depth). Otherwise, recurses only to the specified depth (1=no recursion, just this element)."""
-    elementId = unquote(elementId)
+    """
+    Get the historical values for one or more Objects.
 
-     # Lookup instance to verify it exists
-    instance = data_source.get_instance_by_id(elementId)
-    if not instance:
-        raise HTTPException(status_code=404, detail=f"Element '{elementId}' not found")
+    If maxDepth=0, recursively includes all values from HasComponent children (infinite depth).
+    Otherwise, recurses only to the specified depth (1=no recursion, just this element).
 
-    # Get historical data with optional recursion based on maxDepth
-    # returnHistory=True ensures all values are returned when no time range is specified
-    historical_values = data_source.get_instance_values_by_id(elementId, startTime, endTime, maxDepth, returnHistory=True)
+    Accepts either:
+    - {"elementId": "..."} for single object
+    - {"elementIds": ["...", "..."]} for multiple objects
 
-    return historical_values
+    Returns array of results, each with success/failure status.
+    """
+    element_ids = request_body.get_element_ids()
+    results = []
+
+    for eid in element_ids:
+        eid_decoded = unquote(eid)
+        instance = data_source.get_instance_by_id(eid_decoded)
+        if instance:
+            historical_values = data_source.get_instance_values_by_id(
+                eid_decoded,
+                request_body.startTime,
+                request_body.endTime,
+                request_body.maxDepth,
+                returnHistory=True
+            )
+            results.append({
+                "elementId": eid,
+                "success": True,
+                "data": historical_values
+            })
+        else:
+            results.append({
+                "elementId": eid,
+                "success": False,
+                "error": f"Element '{eid}' not found"
+            })
+
+    return {
+        "results": results,
+        "totalRequested": len(element_ids),
+        "totalSuccess": sum(1 for r in results if r["success"]),
+        "totalFailed": sum(1 for r in results if not r["success"])
+    }
 
 # RFC 4.2.2.2 - Object Element HistoricalValue
 @update.put("/objects/{elementId}/history", summary="Update Historical Values of Object")
