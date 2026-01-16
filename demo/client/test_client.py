@@ -128,7 +128,7 @@ async def get_namespaces(base_url: str = None):
 
 
 async def get_object_type(base_url: str = None, element_id: str = None):
-    """get_object_type calls Get Object Type Definition (RFC 4.1.2)
+    """get_object_type calls Query Object Types by ElementId (RFC 4.1.2)
     :param base_url: base URL of API method being called
     :param element_id: element id
     :return: object type def dict"""
@@ -136,8 +136,15 @@ async def get_object_type(base_url: str = None, element_id: str = None):
         raise TypeError("base_url cannot be None")
     if element_id is None:
         raise TypeError("element_id cannot be None")
-    url = f"{base_url}/objecttypes/{quote(element_id, safe='')}"
-    return await get(url)
+    url = f"{base_url}/objecttypes/query"
+    payload = {"elementId": element_id}
+    response = await post(url, payload)
+    # Extract first result from new response format
+    if response.get("results") and response["results"][0].get("success"):
+        return response["results"][0]["data"]
+    elif response.get("results"):
+        raise Exception(response["results"][0].get("error", "Object type not found"))
+    return response
 
 
 async def get_object_types(base_url: str = None, namespace_uri: str = None):
@@ -170,7 +177,7 @@ async def get_relationship_types(base_url: str = None, namespace_uri: str = None
 
 
 async def get_relationship_type(base_url: str = None, element_id: str = None):
-    """get_relationship_type calls Get Relationship Type (RFC 4.1.4)
+    """get_relationship_type calls Query Relationship Types by ElementId (RFC 4.1.4)
     :param base_url: base URL of API method being called
     :return: relationship type dict
     """
@@ -178,8 +185,15 @@ async def get_relationship_type(base_url: str = None, element_id: str = None):
         raise TypeError("base_url cannot be None")
     if element_id is None or element_id == "":
         raise TypeError("element_id cannot be None")
-    url = f"{base_url}/relationshiptypes/{quote(element_id, safe='')}"
-    return await get(url)
+    url = f"{base_url}/relationshiptypes/query"
+    payload = {"elementId": element_id}
+    response = await post(url, payload)
+    # Extract first result from new response format
+    if response.get("results") and response["results"][0].get("success"):
+        return response["results"][0]["data"]
+    elif response.get("results"):
+        raise Exception(response["results"][0].get("error", "Relationship type not found"))
+    return response
 
 
 async def get_objects(
@@ -211,43 +225,55 @@ async def get_relationships(
     element_id: str = None,
     relationship_type: str = None,
 ):
-    """get_relationships calls Get Objects Linked by Relationship Type (RFC 4.1.6)
+    """get_relationships calls Query Related Objects (RFC 4.1.6)
     :param base_url: base URL of API method being called
     :param element_id: element id
     :param relationship_type: relationship type
     :return: relationships dict"""
     if base_url is None:
         raise TypeError("base_url cannot be None")
-    url = f"{base_url}/objects"
     if element_id is None:
         raise ValueError("element_id is required to run get_relationships")
     if relationship_type is None:
         raise ValueError("relationship_type is required to run get_relationships")
-    url += f"/{quote(element_id, safe='')}/related"
-    params = {"relationshiptype": relationship_type}
-
-    json_response = await get(url, params=params)
-    return json_response
+    url = f"{base_url}/objects/related"
+    payload = {
+        "elementId": element_id,
+        "relationshiptype": relationship_type
+    }
+    response = await post(url, payload)
+    # Extract first result from new response format
+    if response.get("results") and response["results"][0].get("success"):
+        return response["results"][0]["data"]
+    elif response.get("results"):
+        raise Exception(response["results"][0].get("error", "Element not found"))
+    return response
 
 
 async def get_object(
     base_url: str = None, element_id: str = None, include_metadata: bool = False
 ):
-    """get_object calls Get Object Definition (RFC 4.1.7)
+    """get_object calls List Objects by ElementId (RFC 4.1.5)
     :param base_url: base URL of API method being called
     :param element_id: element id
     :param include_metadata: boolean, if true get object metadata, default false
     :return: object dict"""
     if base_url is None:
         raise TypeError("base_url cannot be None")
-    url = f"{base_url}/objects"
     if element_id is None or element_id == "":
         raise ValueError("element_id is required to run get_object")
-    url += f"/{quote(element_id, safe='')}"
-    params = {"includeMetadata": "false"}
-    if include_metadata:
-        params["includeMetadata"] = "true"
-    return await get(url, params)
+    url = f"{base_url}/objects/list"
+    payload = {
+        "elementId": element_id,
+        "includeMetadata": include_metadata
+    }
+    response = await post(url, payload)
+    # Extract first result from new response format
+    if response.get("results") and response["results"][0].get("success"):
+        return response["results"][0]["data"]
+    elif response.get("results"):
+        raise Exception(response["results"][0].get("error", "Object not found"))
+    return response
 
 
 #######################################
@@ -256,7 +282,7 @@ async def get_object(
 async def get_value(
     base_url: str = None, element_id: str = None, include_metadata: bool = False
 ):
-    """get_value calls Get Object Element LastKnown Value (RFC 4.2.1.1)
+    """get_value calls Query Last Known Values (RFC 4.2.1.1)
     :param base_url: base URL of API method being called
     :param include_metadata: boolean, if true get object metadata, default false
     :param element_id: element id
@@ -264,13 +290,19 @@ async def get_value(
     if base_url is None:
         raise TypeError("base_url cannot be None")
     if element_id is None:
-        raise ValueError("element_id is required to run get_relationships")
-    url = f"{base_url}/objects/{quote(element_id, safe='')}/value"
-    params = {"includeMetadata": "false"}
-    if include_metadata:
-        params["includeMetadata"] = "true"
-
-    return await get(url, params)
+        raise ValueError("element_id is required to run get_value")
+    url = f"{base_url}/objects/value"
+    payload = {
+        "elementId": element_id,
+        "maxDepth": 1
+    }
+    response = await post(url, payload)
+    # Extract first result from new response format
+    if response.get("results") and response["results"][0].get("success"):
+        return response["results"][0]["data"]
+    elif response.get("results"):
+        raise Exception(response["results"][0].get("error", "Element not found"))
+    return response
 
 
 async def get_history(
@@ -280,7 +312,7 @@ async def get_history(
     end_time: str = None,
     include_metadata: bool = False,
 ):
-    """get_history calls Get Object Element Historical Value (RFC 4.2.1.2)
+    """get_history calls Query Historical Values (RFC 4.2.1.2)
     :param base_url: base url of API method being called
     :param element_id: element id
     :param include_metadata: boolean, if true get history metadata, default false
@@ -290,16 +322,22 @@ async def get_history(
         raise TypeError("base_url cannot be None")
     if element_id is None:
         raise ValueError("element_id is required to run get_history")
-    url = f"{base_url}/objects/{quote(element_id, safe='')}/history"
-    params = {"includeMetadata": "false"}
-    if include_metadata:
-        params["includeMetadata"] = "true"
+    url = f"{base_url}/objects/history"
+    payload = {
+        "elementId": element_id,
+        "maxDepth": 1
+    }
     if start_time is not None:
-        params["startTime"] = start_time
+        payload["startTime"] = start_time
     if end_time is not None:
-        params["endTime"] = end_time
-
-    return await get(url, params)
+        payload["endTime"] = end_time
+    response = await post(url, payload)
+    # Extract first result from new response format
+    if response.get("results") and response["results"][0].get("success"):
+        return response["results"][0]["data"]
+    elif response.get("results"):
+        raise Exception(response["results"][0].get("error", "Element not found"))
+    return response
 
 
 #######################################
