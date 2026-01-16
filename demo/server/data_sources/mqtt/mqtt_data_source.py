@@ -148,7 +148,7 @@ class MQTTDataSource(I3XDataSource):
                 if self.update_callback:
                     # Extract name from original topic
                     name = self._get_name_from_topic(msg.topic)
-                    
+
                     instance = {
                         "elementId": element_id,
                         "displayName": name,
@@ -158,9 +158,16 @@ class MQTTDataSource(I3XDataSource):
                         "namespaceUri": self.MQTT_NAMESPACE_URI,
                         "timestamp": timestamp
                     }
-                    
+
+                    # Pass full record with value, timestamp, and quality for subscription system
+                    record = {
+                        "value": value,
+                        "timestamp": timestamp,
+                        "quality": "Good"
+                    }
+
                     try:
-                        self.update_callback(instance, value)
+                        self.update_callback(instance, record)
                     except Exception as e:
                         self.logger.error(f"Error calling update callback: {e}")
 
@@ -280,7 +287,14 @@ class MQTTDataSource(I3XDataSource):
         element_id: str,
         startTime: Optional[str] = None,
         endTime: Optional[str] = None,
+        maxDepth: int = 1,
+        returnHistory: bool = False,
     ) -> Optional[Dict[str, Any]]:
+        """Return instance values by ElementId.
+
+        Note: MQTT data source does not support historical values or composition depth.
+        maxDepth and returnHistory parameters are accepted but ignored.
+        """
         value = self.get_topic_value(element_id)
         return value
 
@@ -292,8 +306,10 @@ class MQTTDataSource(I3XDataSource):
         return []
 
     # Only support children
-    def get_related_instances(self, element_id: str, relationship_type: str) -> List[Dict[str, Any]]:
+    def get_related_instances(self, element_id: str, relationship_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """MQTT does not have non-hierarchical relationships, return empty"""
+        if relationship_type is None:
+            return []
         if relationship_type.lower() == "haschildren" or relationship_type.lower() == "children":
             """Return direct child topics for the given parent element_id"""
             children = []
