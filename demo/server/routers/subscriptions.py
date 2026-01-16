@@ -211,7 +211,7 @@ async def stream_subscription(request: Request, subscriptionId: str):
         try:
             while True:
                 update = await queue.get()
-                yield json.dumps([update]) + "\n"
+                yield f"data: {json.dumps([update])}\n\n"
         except Exception as e:
             print(f"[SSE] Stream ended: {e}")
         finally:
@@ -230,7 +230,7 @@ async def stream_subscription(request: Request, subscriptionId: str):
     sub.handler = push_update_to_client
     sub.event_loop = loop
     sub.streaming_response = StreamingResponse(
-        event_stream(), media_type="application/json"
+        event_stream(), media_type="text/event-stream"
     )
 
     # Clear the queue when switching to streaming (per requirements)

@@ -497,7 +497,9 @@ async def read_sse(url: str):
             async with client.stream("GET", url, headers={"Accept": "text/event-stream"}) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
-                    if line:
+                    if line.startswith("data: "):
+                        print(line[6:])  # Strip "data: " prefix for clean JSON output
+                    elif line:
                         print(line)
     except asyncio.CancelledError:
         pass
