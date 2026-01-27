@@ -9,6 +9,8 @@ This initial proposal recommends the [creation of a common API](https://github.c
 ## Trying it Out
 A public endpoint for the in-progress Demo implementation is available at [https://i3x.cesmii.net/](https://i3x.cesmii.net/) with a Swagger page at [https://i3x.cesmii.net/docs](https://i3x.cesmii.net/docs).
 
+<img src="https://www.acetechnologies.net/i3X/screenshots/subscriptions.png" height=200 style="height:200px">
+
 If you prefer a GUI, [ACE Technologies](https://www.acetechnologies.net) has provided a cross-platform [i3X Explorer](https://www.acetechnologies.net/i3x) client you can use to explore both the i3X functions and the Demo namespace.
 
 ## Call to Action
