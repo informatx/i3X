@@ -289,8 +289,8 @@ def delete_subscription(request: Request, subscriptionId: str):
 
 
 # Subscription thread responsible for creating updates for items being monitored.
-# If SSE is active (is_streaming=True), stream updates via handler
-# Otherwise, queue updates for retrieval via /sync (max 1000, FIFO)
+# If SSE is active (is_streaming=True), stream updates via handler (streaming mode)
+# Otherwise, queue updates for retrieval via /sync (sync mode, max 1000, FIFO)
 def handle_data_source_update(instance, value, I3X_DATA_SUBSCRIPTIONS, data_source):
     """Route updates from data sources to active subscriptions"""
     try:
@@ -328,7 +328,7 @@ def handle_data_source_update(instance, value, I3X_DATA_SUBSCRIPTIONS, data_sour
 
 
 def subscription_worker(I3X_DATA_SUBSCRIPTIONS, running_flag):
-    """Subscription worker thread - now just keeps the thread alive for QoS0 streaming"""
+    """Subscription worker thread - now just keeps the thread alive for streaming mode"""
     while running_flag["running"]:
         # Just sleep - updates now come via callback from data sources
         time.sleep(1)

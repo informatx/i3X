@@ -1,6 +1,6 @@
 [
   {
-    "id": "test-qos2-001",
+    "id": "test-sync-001",
     "name": "Sync endpoint returns array",
     "description": "RFC 4.2.3.4 - Sync MUST respond with an array of updates",
     "category": "subscriptions",
@@ -37,7 +37,7 @@
     ]
   },
   {
-    "id": "test-qos2-002",
+    "id": "test-sync-002",
     "name": "Sync clears queue on retrieval",
     "description": "RFC 4.2.3.4 - Calling sync acknowledges and clears previous updates",
     "category": "subscriptions",
@@ -78,7 +78,7 @@
     ]
   },
   {
-    "id": "test-qos2-003",
+    "id": "test-sync-003",
     "name": "Sync for non-existent subscription returns 404",
     "description": "RFC 4.2.3.4 - Non-existent subscription should return 404",
     "category": "subscriptions",
@@ -92,7 +92,7 @@
     ]
   },
   {
-    "id": "test-qos2-004",
+    "id": "test-sync-004",
     "name": "Sync update items have elementId",
     "description": "RFC 4.2.3.4 - Each update MUST include elementId",
     "category": "subscriptions",
@@ -129,7 +129,7 @@
     ]
   },
   {
-    "id": "test-qos2-005",
+    "id": "test-sync-005",
     "name": "Empty sync returns empty array",
     "description": "RFC 4.2.3.4 - If no elements have changed, response MUST be an empty array",
     "category": "subscriptions",

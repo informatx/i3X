@@ -742,29 +742,29 @@ paths:
   /subscriptions/{subscriptionId}/stream:
     get:
       operationId: streamSubscription
-      summary: Open SSE stream (QoS0)
+      summary: Open SSE stream (streaming)
       description: |
         Opens a Server-Sent Events (SSE) stream for real-time data delivery.
 
-        This implements QoS 0 (At Most Once) delivery - the CMIP will publish
+        This implements streaming (At Most Once) delivery - the CMIP will publish
         messages as data becomes available, but provides no guarantee of delivery.
 
         When the stream is active, updates are delivered immediately rather than
         being queued for /sync retrieval.
 
-        **RFC Reference:** 4.2.3.2 (QoS 0)
+        **RFC Reference:** 4.2.3.2 (streaming)
       tags:
         - Subscriptions
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdPath'
-        - name: qos
+        - name: mode
           in: query
-          description: QoS level (0 for SSE streaming)
+          description: Delivery mode (streaming for SSE)
           required: false
           schema:
-            type: integer
-            enum: [0]
-            default: 0
+            type: string
+            enum: [streaming]
+            default: streaming
       responses:
         '200':
           description: SSE stream opened successfully
@@ -787,11 +787,11 @@ paths:
   /subscriptions/{subscriptionId}/sync:
     post:
       operationId: syncSubscription
-      summary: Poll for updates (QoS2)
+      summary: Poll for updates (sync)
       description: |
         Retrieves queued updates for the subscription and acknowledges receipt.
 
-        This implements QoS 2 (Exactly Once) delivery - the server will persist
+        This implements sync (Exactly Once) delivery - the server will persist
         messages for re-delivery until the client acknowledges successful receipt.
 
         The CMIP MUST respond with an array of updates for elements that have
@@ -803,14 +803,14 @@ paths:
         - Subscriptions
       parameters:
         - $ref: '#/components/parameters/SubscriptionIdPath'
-        - name: qos
+        - name: mode
           in: query
-          description: QoS level (2 for polling)
+          description: Delivery mode (sync for polling)
           required: false
           schema:
-            type: integer
-            enum: [2]
-            default: 2
+            type: string
+            enum: [sync]
+            default: sync
       responses:
         '200':
           description: Successful response with queued updates

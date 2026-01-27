@@ -95,8 +95,8 @@ Tests for real-time data streaming:
 | Test File | Description |
 |-----------|-------------|
 | `test_lifecycle.json` | Create/monitor/unsubscribe |
-| `test_qos0.json` | SSE streaming behavior |
-| `test_qos2.json` | Sync/acknowledge behavior |
+| `test_streaming.json` | SSE streaming behavior |
+| `test_sync.json` | Sync/acknowledge behavior |
 
 ## Test File Format
 
@@ -181,7 +181,7 @@ Pass all tests in:
 Core plus:
 - `values/test_historical_value.json`
 - `subscriptions/test_lifecycle.json`
-- `subscriptions/test_qos0.json` OR `subscriptions/test_qos2.json`
+- `subscriptions/test_streaming.json` OR `subscriptions/test_sync.json`
 
 ### Full
 

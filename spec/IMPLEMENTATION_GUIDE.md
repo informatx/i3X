@@ -474,16 +474,14 @@ GET /objects?cursor=eyJpZCI6MTAwfQ&limit=50
 
 ### 5.1 Overview
 
-The subscription system enables real-time data delivery to clients. It supports two QoS levels:
+The subscription system enables real-time data delivery to clients. It supports two delivery modes:
 
-| QoS | Name | Delivery | Use Case |
-|-----|------|----------|----------|
-| 0 | At Most Once | SSE streaming | Real-time dashboards |
-| 2 | Exactly Once | Polling | Reliable data collection |
+| Mode | Name | Delivery | Use Case |
+|------|------|----------|----------|
+| streaming | At Most Once | SSE streaming | Real-time dashboards |
+| sync | Exactly Once | Polling | Reliable data collection |
 
-Note: QoS 1 (At Least Once) from MQTT is intentionally omitted.
-
-### 5.2 QoS 0: At Most Once (SSE Streaming)
+### 5.2 Streaming: At Most Once (SSE Streaming)
 
 **How it works:**
 
@@ -491,7 +489,7 @@ Note: QoS 1 (At Least Once) from MQTT is intentionally omitted.
 2. Client registers items via `POST /subscriptions/{id}/register`
 3. Client opens SSE stream via `GET /subscriptions/{id}/stream`
 4. Server pushes updates as they occur
-5. No delivery guarantee - if client disconnects, updates are lost
+5. No delivery guarantee - if client disconnects, updates are lost (streaming mode)
 
 **Connection Management:**
 
@@ -531,11 +529,11 @@ Recommended interval: 30 seconds
 **Reconnection Handling:**
 
 - When client reconnects, subscription state persists
-- Updates during disconnection are lost (QoS 0 guarantee)
+- Updates during disconnection are lost (streaming mode guarantee)
 - Client must call `/stream` again to resume
 - Previous stream connection is invalidated
 
-### 5.3 QoS 2: Exactly Once (Polling)
+### 5.3 Sync: Exactly Once (Polling)
 
 **How it works:**
 
@@ -642,7 +640,7 @@ DELETE /subscriptions/{id}
 
 - Updates SHOULD be delivered within 100ms of data source change
 - SSE streams SHOULD push updates immediately
-- QoS 2 queues may batch updates for efficiency
+- Sync queues may batch updates for efficiency
 
 **Composition Elements:**
 
@@ -809,7 +807,7 @@ class SubscriptionManager:
 
 - Generally avoid caching values
 - If caching, use very short TTL (< 1 second)
-- Consider caching only for QoS 2 polling batching
+- Consider caching only for sync polling batching
 
 ### 6.5 Performance Guidelines
 
@@ -941,7 +939,7 @@ python test_runner.py --base-url http://localhost:8080
 |----------|----------|-------|
 | exploratory | Yes | Namespaces, types, instances, relationships |
 | values | Partially | Current value (req), history (opt), updates (opt) |
-| subscriptions | Partially | Create/delete (req), QoS0/QoS2 (opt) |
+| subscriptions | Partially | Create/delete (req), streaming/sync (opt) |
 
 ### 8.4 Certification Levels
 

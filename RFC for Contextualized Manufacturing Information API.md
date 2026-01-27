@@ -225,19 +225,19 @@ The contributors to this RFC, and the broader community, have communicated clear
 
 ##### 4.2.3.1 Create Subscription
 
-Registers a client for a new Subscription. This initial handshake allows the CMIP to allocate resources for a client, and specifies the quality of service (QoS) the client requires. The response from the SMIP MUST include a Subscription Id that may be used for follow-up calls. Implementations SHALL support two QoS Levels. Note that QoS levels are aligned to the MQTT standard, which has a QoS 1 (At Least Once) which has no analog in this RFC, so it has been ommitted intentionally.
+Registers a client for a new Subscription. This initial handshake allows the CMIP to allocate resources for a client. The response from the SMIP MUST include a Subscription Id that may be used for follow-up calls. Implementations SHALL support two delivery modes.
 
-###### QoS 0: At Most Once
+###### Streaming: At Most Once
 
-The CMIP will publish messages to subscribed clients as the data becomes available, but provide no guarantee of message delivery.
+The CMIP will publish messages to subscribed clients as the data becomes available via Server-Sent Events (SSE), but provide no guarantee of message delivery.
 
-###### QoS 2: Exactly Once
+###### Sync: Exactly Once
 
-The server will publish messages to subscribed clients when the client indicates readiness and will persist the message for re-delivery until the client acknowledges successful receipt. Only the most recent value is guaranteed to be delivered; in its initial version a CMIP provides no buffer for messages between acknowledged messages.
+The server will publish messages to subscribed clients when the client indicates readiness via polling and will persist the message for re-delivery until the client acknowledges successful receipt. Only the most recent value is guaranteed to be delivered; in its initial version a CMIP provides no buffer for messages between acknowledged messages.
 
 ##### 4.2.3.2 Register Monitored Items
 
-Registers the ElementIds the client wishes to subscribe to, for a given Subscription Id. Upon registration, the CMIP MUST begin publishing changed values according to the client's requested QoS level. This method is additive, that is the client can add additional monitored items later.
+Registers the ElementIds the client wishes to subscribe to, for a given Subscription Id. Upon registration, the CMIP MUST begin publishing changed values. This method is additive, that is the client can add additional monitored items later.
 
 The registration request MUST include:
 - elementIds: an array of ElementIds to monitor
@@ -245,13 +245,13 @@ The registration request MUST include:
 The registration request MAY include:
 - maxDepth: controls recursion through HasComponent relationships for elements with `isComposition: true`, using the same semantics as defined in [section 4.2.1.1](#4211-object-element-lastknownvalue). Default is 1 (no recursion).
 
-For QoS 0 subscriptions, this method call establishes an ongoing connection between the client and CMIP. The server MUST stream changes to Subscribed items over this connection immediately until the connection is broken or the Unsubscribe method is called. Each update being streamed MUST include:
+For streaming subscriptions, this method call establishes an ongoing connection between the client and CMIP. The server MUST stream changes to Subscribed items over this connection immediately until the connection is broken or the Unsubscribe method is called. Each update being streamed MUST include:
 - elementId: the ElementId of the changed element
 - value: the new value (with recursive structure if maxDepth was specified)
 - quality: the quality indicator
 - timestamp: the timestamp of the change
 
-For QoS 2 subscriptions, the registration confirms which items will be monitored. Changed values are retrieved via the Sync method ([section 4.2.3.3](#4233-sync)).
+For sync subscriptions, the registration confirms which items will be monitored. Changed values are retrieved via the Sync method ([section 4.2.3.3](#4233-sync)).
 
 Note: I3X explicitly permits subscribing to composition structures (an ElementId may represent a single property of an object, an entire object, or a tree of composed objects). The `maxDepth` parameter controls how deep the CMIP recurses through HasComponent relationships when publishing updates. As the required metadata for each object includes `isComposition`, a client can determine which elements have component children.
 
@@ -261,7 +261,7 @@ Removes the ElementIds the client no longer wishes to have in the subscription, 
 
 ##### 4.2.3.4 Sync
 
-This method is used only for QoS 2 subscriptions, and is called with a specific Subscription Id, to allow the client to:
+This method is used only for sync subscriptions, and is called with a specific Subscription Id, to allow the client to:
 - Acknowledge receipt of previous messages
 - Check for changes to subscribed elements
 
@@ -273,7 +273,7 @@ When servicing the Sync call, the CMIP MUST respond with an array of updates for
 
 If no elements have changed since the last Sync call, the response MUST be an empty array.
 
-If the client does not acknowledge a previous message, the CMIP MUST re-send that message as part of the response to the Sync call. The CMIP must maintain state for all pending (un-acknowledged) messages, with the caveat that only the latest value is ever available to QoS 2 clients.
+If the client does not acknowledge a previous message, the CMIP MUST re-send that message as part of the response to the Sync call. The CMIP must maintain state for all pending (un-acknowledged) messages, with the caveat that only the latest value is ever available to sync clients.
 
 ##### 4.2.3.5 Unsubscribe
 

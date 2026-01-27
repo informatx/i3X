@@ -95,7 +95,7 @@ All routers use dependency injection to access data sources - they never import 
   - Explore router: Browse instances, query by type (RFC 4.1.6-4.1.8)
   - Query router: Get current/historical values (RFC 4.2.1.x)
   - Update router: Write values (RFC 4.2.2.x)
-- `subscriptions.py` - Real-time data streaming with QoS0 (SSE) and QoS2 (polling) (RFC 4.2.3.x)
+- `subscriptions.py` - Real-time data streaming with streaming (SSE) and sync (polling) (RFC 4.2.3.x)
 - `utils.py` - Response formatting helpers (`getObject`, `getValue`, `getValueMetadata`, `getSubscriptionValue`)
 
 **Key RFC Concepts:**
@@ -226,7 +226,7 @@ The server implements RFC 001 I3X API specification:
 - RFC 4.1.x - All exploratory methods (namespaces, types, instances, relationships)
 - RFC 4.2.1.x - Value query methods (current and historical values)
 - RFC 4.2.2.1 - Current value updates (PUT `/objects/{elementId}/value`)
-- RFC 4.2.3.x - Subscriptions with QoS0 (SSE) and QoS2 (polling)
+- RFC 4.2.3.x - Subscriptions with streaming (SSE) and sync (polling)
 
 **Known Limitations:**
 - RFC 4.2.2.2 - Historical updates (PUT `/objects/{elementId}/history`) returns 501 Not Implemented
@@ -253,7 +253,7 @@ The server implements RFC 001 I3X API specification:
 - Include proper JSON serialization configuration
 
 **Subscription Debugging:**
-If QoS0 subscriptions don't receive updates:
+If streaming subscriptions don't receive updates:
 1. Verify `MockDataUpdater` is running (check app startup logs)
 2. Ensure instance has `records` in mock_data.py
 3. Check instance is not marked `"static": true`

@@ -22,7 +22,7 @@ This is a FastAPI-based HTTP server that implements the RFC 001 compliant I3X (I
     - Explore: Object instance queries (RFC 4.1.6-4.1.8)
     - Query: Current and historical values (RFC 4.2.1.x)
     - Update: Value updates (RFC 4.2.2.x)
-  - `subscriptions.py`: Real-time data streaming with QoS0/QoS2 support (RFC 4.2.3.x)
+  - `subscriptions.py`: Real-time data streaming with streaming/sync support (RFC 4.2.3.x)
   - `utils.py`: Helper functions for formatting responses (getObject, getValue, getValueMetadata, getSubscriptionValue)
 
 ## Docker Deployment
@@ -300,7 +300,7 @@ This implementation follows RFC 001 - Common API for Industrial Information Inte
 - **Exploratory Methods** (RFC 4.1) - Read-only operations for browsing data
 - **Value Methods** (RFC 4.2.1) - Reading current and historical values
 - **Update Methods** (RFC 4.2.2) - Writing values (4.2.2.1 implemented, 4.2.2.2 returns 501)
-- **Subscription Methods** (RFC 4.2.3) - Real-time data streaming with QoS0/QoS2 support
+- **Subscription Methods** (RFC 4.2.3) - Real-time data streaming with streaming/sync support
 
 This implementation provides comprehensive RFC-compliant endpoints with proper metadata handling and JSON serialization. See the interactive Swagger UI documentation at http://localhost:8080/docs for complete API details.
 

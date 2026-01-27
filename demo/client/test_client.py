@@ -476,7 +476,7 @@ async def unregister(
 
 async def sync(base_url: str = None, subscription_id: str = None):
     """
-    sync calls Sync QoS2 (RFC 4.2.3.3)
+    sync calls Sync (RFC 4.2.3.3)
     :param base_url: base URL of API method being called
     :param subscription_id: subscription id to sync elements for
     :return: json response from sync

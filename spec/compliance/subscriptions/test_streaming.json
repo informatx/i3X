@@ -1,8 +1,8 @@
 [
   {
-    "id": "test-qos0-001",
+    "id": "test-streaming-001",
     "name": "SSE stream endpoint exists",
-    "description": "RFC 4.2.3.2 (QoS0) - Server MUST support SSE streaming endpoint",
+    "description": "RFC 4.2.3.2 (streaming) - Server MUST support SSE streaming endpoint",
     "category": "subscriptions",
     "required": false,
     "setup": [
@@ -36,7 +36,7 @@
     ]
   },
   {
-    "id": "test-qos0-002",
+    "id": "test-streaming-002",
     "name": "SSE stream for non-existent subscription returns 404",
     "description": "RFC 4.2.3.2 - Non-existent subscription should return 404",
     "category": "subscriptions",
@@ -50,9 +50,9 @@
     ]
   },
   {
-    "id": "test-qos0-003",
+    "id": "test-streaming-003",
     "name": "SSE stream clears pending queue",
-    "description": "RFC 4.2.3.2 (QoS0) - When streaming starts, pending queue should be cleared",
+    "description": "RFC 4.2.3.2 (streaming) - When streaming starts, pending queue should be cleared",
     "category": "subscriptions",
     "required": false,
     "setup": [
