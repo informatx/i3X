@@ -28,6 +28,3 @@ The block diagram below shows where the CM Information API is most applicable, n
 ## API tech stack within the Data Access Model
 The image below shows the tech stack for a general Web Browser compared to the CM Information API, from the perspective of The Data Access Model.  Refer to the article ["How all protocols fail at data access interoperabilty"](https://iebmedia.com/technology/iiot/how-all-protocols-fail-at-data-access-interoperability/) for more information regarding The Data Access Model.
 ![API Data Access Model](images/data-access-model.PNG)
-
-# GraphQL API (Current)
-The current API, based on GraphQL as implemented by [ThinkIQ](https://thinkiq.com/), is still available here: [https://github.com/cesmii/graphql-api](https://github.com/cesmii/graphql-api)
