@@ -9,7 +9,7 @@ This initial proposal recommends the [creation of a common API](https://github.c
 ## Trying it Out
 A public endpoint for the in-progress Demo implementation is available at [https://i3x.cesmii.net/](https://i3x.cesmii.net/) with a Swagger page at [https://i3x.cesmii.net/docs](https://i3x.cesmii.net/docs).
 
-If you prefer a GUI, [https://www.acetechnologies.net](ACE Technologies) has provided a cross-platform [https://www.acetechnologies.net/i3x](i3X Explorer) client you can use to explore both the i3X functions and the Demo namespace.
+If you prefer a GUI, [ACE Technologies](https://www.acetechnologies.net) has provided a cross-platform [i3X Explorer](https://www.acetechnologies.net/i3x) client you can use to explore both the i3X functions and the Demo namespace.
 
 ## Call to Action
 The authors of this document seek your feedback on how to move toward common interfaces for common industrial information functionality. In this public stage, this document is offered RFC-style, not as a prescription, but as an invitation: [review the RFC](https://github.com/cesmii/API/blob/main/RFC%20for%20Contextualized%20Manufacturing%20Information%20API.md), and consider participating in the [prototype implementation](https://github.com/cesmii/API/tree/prototypes). The tasks for that effort will be [tracked publically here](https://github.com/orgs/cesmii/projects/1). If you wish to contribute, please review the [Contributing.md guidelines](Contributing.md).
