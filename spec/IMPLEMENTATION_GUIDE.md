@@ -232,7 +232,7 @@ Production Line A (parent)
 
 These indicate when child data IS *part of* the parent's definition -- that is, the child's members are encapsulated within the parent's.
 
-**Note:** isComposition is NEVER used to indicate ownership or hierarchy. It is strictly used to indicate how the data model is constructed. When isComposition is TRUE, the parent's value is composed of its children's values.
+**Note:** isComposition MUST NOT be used to indicate ownership or hierarchy. It is strictly used to indicate how the data model is constructed. When isComposition is TRUE, the parent's value is composed of its children's values.
 
 ```
 CNC Machine (parent, isComposition: true)
