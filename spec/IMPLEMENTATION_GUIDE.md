@@ -111,7 +111,7 @@ urn:i3x:relationships
 
 - Every Object Instance MUST reference its Object Type via `typeId`
 - The `typeId` MUST correspond to an existing Object Type's `elementId`
-- Object Instances SHOULD conform to their Object Type's schema
+- Object Instances MUST conform to their Object Type's schema
 
 **Example:**
 
@@ -191,7 +191,7 @@ Every Object Instance response MUST include these fields (RFC 3.1.1):
 | `displayName` | string | Human-friendly name |
 | `typeId` | string | ElementId of the Object Type |
 | `parentId` | string? | ElementId of parent (null if root) |
-| `isComposition` | boolean | True if element has composed children |
+| `isComposition` | boolean | True if the element's definition depends on its children |
 | `namespaceUri` | string | Namespace URI |
 
 ### 3.2 Optional Object Metadata Fields
@@ -230,7 +230,9 @@ Production Line A (parent)
 
 **HasComponent / ComponentOf**
 
-These indicate when child data IS part of the parent's definition. The parent's value is composed of its children's values.
+These indicate when child data IS *part of* the parent's definition -- that is, the child's Type is required to define the parent's Type.
+
+**Note:** isComposition is NEVER used to indicate ownership or hierarchy. It is strictly used to indicate how the data model is constructed. When isComposition is TRUE, the parent's value is composed of its children's values.
 
 ```
 CNC Machine (parent, isComposition: true)
@@ -342,7 +344,7 @@ X-API-Key: <api-key>  (or Authorization: Bearer <token>)
 
 ### 4.3 Pagination Strategy
 
-For endpoints returning arrays, implementations SHOULD support pagination:
+For endpoints returning arrays, implementations MAY support pagination:
 
 **Offset/Limit (Simple):**
 
