@@ -29,6 +29,9 @@ class MQTTDataSource(I3XDataSource):
         self.username = config.get('username')
         self.password = config.get('password')
         self.topic_cache = {}  # topic -> value cache
+        self.discovered_namespaces = {}  # namespace_uri -> display_name
+        self.discovered_types = {}  # namespace_uri -> type definition (one type per $namespace)
+        self.inferred_types = {}  # type_name -> type definition (for topics without $namespace)
         self.cache_lock = threading.Lock()  # Thread-safe access to cache
         self.client = None
         self.is_connected = False
@@ -104,6 +107,10 @@ class MQTTDataSource(I3XDataSource):
         if rc == 0:
             self.is_connected = True
             self.logger.info("Successfully connected to MQTT broker")
+
+            # Create virtual root node
+            self._create_root_node()
+
             # Subscribe to all configured topics
             for topic in self.topics:
                 self.logger.info(f"Subscribing to MQTT topic: {topic}")
@@ -112,7 +119,7 @@ class MQTTDataSource(I3XDataSource):
                 self.logger.info(f"Subscribed to {len(self.topics)} MQTT topics")
             else:
                 self.logger.warning("No topics configured for MQTT subscription")
-                
+
             # Clean up any excluded topics from existing cache after successful connection
             self._clean_excluded_topics_from_cache()
         else:
@@ -132,16 +139,53 @@ class MQTTDataSource(I3XDataSource):
             except (json.JSONDecodeError, UnicodeDecodeError):
                 value = msg.payload.decode()
 
+            # Determine namespace and type for this payload
+            namespace_uri = None
+            type_id = None
+
+            if isinstance(value, dict) and '$namespace' in value:
+                # Payload has explicit $namespace - use discovered type
+                namespace_uri = value['$namespace']
+                type_id = self._namespace_to_type_id(namespace_uri)
+                # Only add namespace and type if not already discovered
+                if namespace_uri not in self.discovered_namespaces:
+                    self.discovered_namespaces[namespace_uri] = namespace_uri
+                    self.discovered_types[namespace_uri] = {
+                        "elementId": type_id,
+                        "displayName": type_id,
+                        "namespaceUri": namespace_uri,
+                        "schema": self._get_json_schema(value)
+                    }
+                    self.logger.info(f"Discovered new namespace and type from payload: {namespace_uri} -> {type_id}")
+            else:
+                # No $namespace - use inferred type based on topic name
+                type_name = self._get_name_from_topic(msg.topic)
+                type_id = f"{type_name}Type"
+                # Only create inferred type if not already exists
+                if type_id not in self.inferred_types:
+                    self.inferred_types[type_id] = {
+                        "elementId": type_id,
+                        "displayName": type_id,
+                        "namespaceUri": self.MQTT_NAMESPACE_URI,
+                        "schema": self._get_json_schema(value)
+                    }
+                    self.logger.info(f"Created inferred type: {type_id}")
+
             # Update cache thread-safely
             with self.cache_lock:
                 # Convert / to _ in topic for elementId to avoid URL path issues
                 element_id = self._topic_to_element_id(msg.topic)
                 timestamp = datetime.now(timezone.utc).isoformat()
-                
+
+                # Create virtual parent nodes for all intermediate path segments
+                self._ensure_parent_chain(msg.topic, timestamp)
+
                 self.topic_cache[element_id] = {
                     'value': value,
                     'timestamp': timestamp,
-                    'topic': msg.topic  # Keep original topic for reference
+                    'topic': msg.topic,  # Keep original topic for reference
+                    'namespaceUri': namespace_uri,  # Store discovered namespace (or None)
+                    'typeId': type_id  # Store namespace-based type ID (or None for topic-based)
                 }
                 
                 # If callback is set, notify subscription system of update
@@ -149,13 +193,25 @@ class MQTTDataSource(I3XDataSource):
                     # Extract name from original topic
                     name = self._get_name_from_topic(msg.topic)
 
+                    # Infer parentId from topic hierarchy
+                    if '/' in msg.topic:
+                        parent_topic = '/'.join(msg.topic.split('/')[:-1])
+                        parent_element_id = self._topic_to_element_id(parent_topic)
+                        if parent_element_id in self.topic_cache:
+                            parent_id = parent_element_id
+                        else:
+                            parent_id = None
+                    else:
+                        # Top-level topic - parent is root
+                        parent_id = '/'
+
                     instance = {
                         "elementId": element_id,
                         "displayName": name,
-                        "typeId": "",  # Empty for now
-                        "parentId": "",  # Empty for now
-                        "isComposition": False,
-                        "namespaceUri": self.MQTT_NAMESPACE_URI,
+                        "typeId": type_id or (element_id + "_TYPE"),
+                        "parentId": parent_id,
+                        "isComposition": False,  # MQTT topic hierarchy is organizational, not composition
+                        "namespaceUri": namespace_uri or self.MQTT_NAMESPACE_URI,
                         "timestamp": timestamp
                     }
 
@@ -194,61 +250,57 @@ class MQTTDataSource(I3XDataSource):
 
     # I3X Interface
 
-    # For now just return a single hardcoded namespace
     def get_namespaces(self) -> List[Dict[str, Any]]:
-        # TODO - should these be the topics we're subscribed to? what about #?
-        return [{"uri": self.MQTT_NAMESPACE_URI, "displayName": "MQTT"}]
+        """Return namespaces: default MQTT namespace plus any discovered from $namespace in payloads."""
+        namespaces = []
 
-    # Since MQTT doesn't have types per topic, for now iterate all topics and create a type for each
-    #   use the topic as the element ID for the type
+        # Always include the default MQTT namespace (for inferred types without $namespace)
+        namespaces.append({"uri": self.MQTT_NAMESPACE_URI, "displayName": "MQTT"})
+
+        # Add discovered namespaces from payloads with $namespace
+        for uri, display_name in self.discovered_namespaces.items():
+            namespaces.append({"uri": uri, "displayName": display_name})
+
+        return namespaces
+
     def get_object_types(self, namespace_uri: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Return array of Type definitions for all MQTT topics"""
+        """Return array of Type definitions.
+
+        Returns:
+        - Discovered types (one per $namespace found in payloads)
+        - Inferred types (one per unique topic name, in default MQTT namespace)
+        """
         types = []
-        
-        with self.cache_lock:
-            element_ids = list(self.topic_cache.keys())
-        
-        # Use get_object_type_by_id for each element_id
-        for element_id in element_ids:
-            type_definition = self.get_object_type_by_id(element_id)
-            if type_definition is not None:
-                # Apply namespace filtering if specified
-                if namespace_uri is None or namespace_uri == self.MQTT_NAMESPACE_URI:
-                    types.append(type_definition)
-        
-        self.logger.info(f"Generated {len(types)} type definitions")
+
+        # Add discovered types (one per $namespace)
+        for ns_uri, type_def in self.discovered_types.items():
+            if namespace_uri is None or ns_uri == namespace_uri:
+                types.append(type_def)
+
+        # Add inferred types (for topics without $namespace)
+        if namespace_uri is None or namespace_uri == self.MQTT_NAMESPACE_URI:
+            for type_def in self.inferred_types.values():
+                types.append(type_def)
+
+        self.logger.info(f"Returning {len(types)} type definitions")
         return types
     
-    def get_object_type_by_id(self, element_id: str) -> Optional[Dict[str, Any]]:
-        """Return JSON structure defining a Type built from MQTT topic data"""
-        # Type definitions are stored in the cache without the suffix "_TYPE" but returned in queries with the suffix
-        #   Remove it if its in the query so we get a match
-        element_id = re.sub('_TYPE', '', element_id)
-        with self.cache_lock:
-            topic_data = self.topic_cache.get(element_id)
-            if topic_data is None:
-                self.logger.warning(f"No data found for element_id: {element_id}")
-                return None
-            
-            # Get the current value to analyze its structure
-            current_value = topic_data['value']
-            original_topic = topic_data['topic']
-            
-            # Extract name from original topic
-            type_name = self._get_name_from_topic(original_topic)
-            
-            # Build attributes array by analyzing the current value structure
-            jsonSchema = self._get_json_schema(current_value)
-            
-            type_definition = {
-                "elementId": element_id + "_TYPE",
-                "displayName": f"{type_name}Type",
-                "namespaceUri": self.MQTT_NAMESPACE_URI,
-                "schema": jsonSchema
-                }
-            
-            self.logger.info(f"Generated type definition for {element_id}: {type_definition}")
-            return type_definition
+    def get_object_type_by_id(self, type_id: str) -> Optional[Dict[str, Any]]:
+        """Return JSON structure defining a Type by its ID.
+
+        Checks discovered types ($namespace-based) and inferred types (name-based).
+        """
+        # Check discovered types (from $namespace)
+        for ns_uri, type_def in self.discovered_types.items():
+            if type_def['elementId'] == type_id:
+                return type_def
+
+        # Check inferred types (from topic names)
+        if type_id in self.inferred_types:
+            return self.inferred_types[type_id]
+
+        self.logger.warning(f"Type not found: {type_id}")
+        return None
 
     def get_instances(self, type_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Return array of instance objects, optionally filtered by type"""
@@ -298,66 +350,181 @@ class MQTTDataSource(I3XDataSource):
         value = self.get_topic_value(element_id)
         return value
 
-    # No custom types
     def get_relationship_types(self, namespace_uri: Optional[str] = None) -> List[Dict[str, Any]]:
-        return []
+        """Return relationship types inferred from MQTT topic hierarchy"""
+        if namespace_uri is not None and namespace_uri != self.MQTT_NAMESPACE_URI:
+            return []
+
+        return [
+            {
+                "elementId": "HasParent",
+                "displayName": "Has Parent",
+                "namespaceUri": self.MQTT_NAMESPACE_URI,
+                "reverseOf": "HasChildren"
+            },
+            {
+                "elementId": "HasChildren",
+                "displayName": "Has Children",
+                "namespaceUri": self.MQTT_NAMESPACE_URI,
+                "reverseOf": "HasParent"
+            },
+            {
+                "elementId": "HasSibling",
+                "displayName": "Has Sibling",
+                "namespaceUri": self.MQTT_NAMESPACE_URI,
+                "reverseOf": "HasSibling"
+            }
+        ]
 
     def get_relationship_type_by_id(self, element_id: str) -> Optional[Dict[str, Any]]:
+        """Return a specific relationship type by ID"""
+        relationship_types = self.get_relationship_types()
+        for rel_type in relationship_types:
+            if rel_type["elementId"].lower() == element_id.lower():
+                return rel_type
+        return None
+
+    def get_related_instances(self, element_id: str, relationship_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return related instances based on MQTT topic hierarchy.
+
+        Supports:
+        - HasChildren/Children: Direct child topics
+        - HasParent/Parent: Direct parent topic
+        - HasSibling/Sibling: Topics with the same parent
+        - None: Returns all related instances (parent, children, siblings)
+        """
+        if relationship_type is None:
+            # Return all relationships
+            all_related = []
+            all_related.extend(self.get_related_instances(element_id, "HasParent"))
+            all_related.extend(self.get_related_instances(element_id, "HasChildren"))
+            all_related.extend(self.get_related_instances(element_id, "HasSibling"))
+            return all_related
+
+        rel_type_lower = relationship_type.lower()
+
+        if rel_type_lower in ("haschildren", "children"):
+            return self._get_children(element_id)
+        elif rel_type_lower in ("hasparent", "parent"):
+            return self._get_parent(element_id)
+        elif rel_type_lower in ("hassibling", "sibling", "siblings"):
+            return self._get_siblings(element_id)
+
+        # Other relationship types not supported
         return []
 
-    # Only support children
-    def get_related_instances(self, element_id: str, relationship_type: Optional[str] = None) -> List[Dict[str, Any]]:
-        """MQTT does not have non-hierarchical relationships, return empty"""
-        if relationship_type is None:
-            return []
-        if relationship_type.lower() == "haschildren" or relationship_type.lower() == "children":
-            """Return direct child topics for the given parent element_id"""
-            children = []
+    def _get_children(self, element_id: str) -> List[Dict[str, Any]]:
+        """Return direct child topics for the given parent element_id"""
+        children = []
+
+        with self.cache_lock:
+            # Root node - children are all top-level topics
+            if element_id == '/':
+                for cached_element_id, topic_data in self.topic_cache.items():
+                    if cached_element_id == '/':
+                        continue  # Skip root itself
+                    original_topic = topic_data['topic']
+                    # Top-level topic has no '/' in it
+                    if '/' not in original_topic:
+                        instance = self._build_instance(cached_element_id, topic_data)
+                        children.append(instance)
+                return children
 
             # Convert element_id back to topic path format
             parent_topic = element_id.replace('_', '/')
 
-            with self.cache_lock:
-                for cached_element_id, topic_data in self.topic_cache.items():
-                    original_topic = topic_data['topic']
-
-                    # Check if this topic is a direct child of the parent
-                    # Child must start with parent path followed by '/'
-                    if original_topic.startswith(parent_topic + '/'):
-                        # Get the remaining path after the parent
-                        remaining_path = original_topic[len(parent_topic) + 1:]
-
-                        # Direct child means no more '/' separators in remaining path
-                        if '/' not in remaining_path:
-                            instance = self._build_instance(cached_element_id, topic_data)
-                            children.append(instance)
-
-            return children
-        elif relationship_type.lower() == "hasparent" or relationship_type.lower() == "parent":
-            """Return the direct parent topic for the given child element_id"""
-            with self.cache_lock:
-                topic_data = self.topic_cache.get(element_id)
-                if topic_data is None:
-                    return []
-
+            for cached_element_id, topic_data in self.topic_cache.items():
                 original_topic = topic_data['topic']
-                if '/' not in original_topic:
-                    return []  # No parent if no '/' in topic
 
-                # Get parent topic by removing last segment
-                parent_topic = '/'.join(original_topic.split('/')[:-1])
-                parent_element_id = self._topic_to_element_id(parent_topic)
+                # Check if this topic is a direct child of the parent
+                # Child must start with parent path followed by '/'
+                if original_topic.startswith(parent_topic + '/'):
+                    # Get the remaining path after the parent
+                    remaining_path = original_topic[len(parent_topic) + 1:]
 
-                # Check if parent exists in cache
-                if parent_element_id in self.topic_cache:
-                    parent_topic_data = self.topic_cache[parent_element_id]
-                    parent_instance = self._build_instance(parent_element_id, parent_topic_data)
-                    return [parent_instance]
+                    # Direct child means no more '/' separators in remaining path
+                    if '/' not in remaining_path:
+                        instance = self._build_instance(cached_element_id, topic_data)
+                        children.append(instance)
 
+        return children
+
+    def _get_parent(self, element_id: str) -> List[Dict[str, Any]]:
+        """Return the direct parent topic for the given child element_id"""
+        with self.cache_lock:
+            # Root node has no parent
+            if element_id == '/':
+                return []
+
+            topic_data = self.topic_cache.get(element_id)
+            if topic_data is None:
+                return []
+
+            original_topic = topic_data['topic']
+
+            if '/' not in original_topic:
+                # Top-level topic - parent is root
+                if '/' in self.topic_cache:
+                    root_topic_data = self.topic_cache['/']
+                    root_instance = self._build_instance('/', root_topic_data)
+                    return [root_instance]
+                return []
+
+            # Get parent topic by removing last segment
+            parent_topic = '/'.join(original_topic.split('/')[:-1])
+            parent_element_id = self._topic_to_element_id(parent_topic)
+
+            # Check if parent exists in cache
+            if parent_element_id in self.topic_cache:
+                parent_topic_data = self.topic_cache[parent_element_id]
+                parent_instance = self._build_instance(parent_element_id, parent_topic_data)
+                return [parent_instance]
+
+        return []
+
+    def _get_siblings(self, element_id: str) -> List[Dict[str, Any]]:
+        """Return sibling topics (topics with the same parent) for the given element_id"""
+        siblings = []
+
+        # Root node has no siblings
+        if element_id == '/':
             return []
 
-        # Other relationship types not supported
-        return []
+        with self.cache_lock:
+            topic_data = self.topic_cache.get(element_id)
+            if topic_data is None:
+                return []
+
+            original_topic = topic_data['topic']
+            if '/' not in original_topic:
+                # Top-level topics are siblings (they share root as parent)
+                for cached_element_id, cached_topic_data in self.topic_cache.items():
+                    if cached_element_id == '/' or cached_element_id == element_id:
+                        continue  # Skip root and self
+                    cached_topic = cached_topic_data['topic']
+                    # Top-level sibling: no '/' in topic
+                    if '/' not in cached_topic:
+                        instance = self._build_instance(cached_element_id, cached_topic_data)
+                        siblings.append(instance)
+                return siblings
+
+            # Get parent topic by removing last segment
+            parent_topic = '/'.join(original_topic.split('/')[:-1])
+
+            for cached_element_id, cached_topic_data in self.topic_cache.items():
+                if cached_element_id == element_id:
+                    continue  # Skip self
+
+                cached_topic = cached_topic_data['topic']
+
+                # Check if this topic has the same parent
+                if '/' in cached_topic:
+                    cached_parent = '/'.join(cached_topic.split('/')[:-1])
+                    if cached_parent == parent_topic:
+                        instance = self._build_instance(cached_element_id, cached_topic_data)
+                        siblings.append(instance)
+
+        return siblings
 
     def update_instance_value(self, element_id: str, value: Any) -> Dict[str, Any]:
         """Update values for specified element IDs by publishing to MQTT topics"""
@@ -449,7 +616,23 @@ class MQTTDataSource(I3XDataSource):
     def _topic_to_element_id(self, topic: str) -> str:
         """Convert / to _ in topic for elementId to avoid URL path issues"""
         return topic.replace('/', '_')
-    
+
+    def _namespace_to_type_id(self, namespace_uri: str) -> str:
+        """Convert namespace URI to a type ID.
+
+        Uses the last meaningful path segment of the URI as the type name.
+        E.g., 'https://opcfoundation.org/UA/Machinery/MachineIdentification/v1.0'
+              -> 'MachineIdentification'
+        """
+        # Remove trailing slash and split
+        parts = namespace_uri.rstrip('/').split('/')
+        # Skip version-like segments (v1.0, v2, etc.) and find last meaningful name
+        for part in reversed(parts):
+            if not re.match(r'^v?\d+(\.\d+)*$', part, re.IGNORECASE):
+                return part
+        # Fallback to last segment if all are version-like
+        return parts[-1] if parts else namespace_uri
+
     def _is_topic_excluded(self, topic: str) -> bool:
         """Check if a topic should be excluded based on excluded_topics config.
         Supports wildcards using * character.
@@ -543,17 +726,101 @@ class MQTTDataSource(I3XDataSource):
                 self.logger.info(f"Cleaned {len(to_remove)} excluded topics from cache")
 
     def _build_instance(self, element_id: str, topic_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Helper method to build an instance object from element_id and topic_data"""
+        """Helper method to build an instance object from element_id and topic_data.
+
+        Infers parentId from topic hierarchy and isComposition from presence of children.
+        """
         original_topic = topic_data['topic']
         name = self._get_name_from_topic(original_topic)
+
+        # Infer parentId from topic hierarchy
+        if original_topic == '/':
+            # Root node has no parent
+            parent_id = None
+        elif '/' in original_topic:
+            # Nested topic - parent is the path minus the last segment
+            parent_topic = '/'.join(original_topic.split('/')[:-1])
+            parent_element_id = self._topic_to_element_id(parent_topic)
+            # Only set parentId if parent exists in cache
+            if parent_element_id in self.topic_cache:
+                parent_id = parent_element_id
+            else:
+                parent_id = None
+        else:
+            # Top-level topic - parent is root
+            parent_id = '/'
+
+        # Use discovered namespace from payload, or fall back to default
+        namespace_uri = topic_data.get('namespaceUri') or self.MQTT_NAMESPACE_URI
+        # Use stored type ID, or infer from topic name for virtual nodes
+        type_id = topic_data.get('typeId')
+        if type_id is None:
+            type_name = self._get_name_from_topic(original_topic)
+            type_id = f"{type_name}Type"
 
         return {
             "elementId": element_id,
             "displayName": name,
-            "typeId": "",  # Empty for now
-            "parentId": "",  # Empty for now
-            "isComposition": False,
-            "namespaceUri": self.MQTT_NAMESPACE_URI,
+            "typeId": type_id,
+            "parentId": parent_id,
+            "isComposition": False,  # MQTT topic hierarchy is organizational, not composition
+            "namespaceUri": namespace_uri,
             "attributes": topic_data['value'],
             "timestamp": topic_data['timestamp']
         }
+
+    def _has_children(self, topic: str) -> bool:
+        """Check if a topic has any child topics in the cache.
+
+        Note: Caller must hold cache_lock or call within a locked context.
+        """
+        for cached_element_id, cached_topic_data in self.topic_cache.items():
+            cached_topic = cached_topic_data['topic']
+            # Child must start with this topic followed by '/'
+            if cached_topic.startswith(topic + '/'):
+                return True
+        return False
+
+    def _create_root_node(self) -> None:
+        """Create the virtual root node that all top-level topics attach to."""
+        with self.cache_lock:
+            if '/' not in self.topic_cache:
+                timestamp = datetime.now(timezone.utc).isoformat()
+                self.topic_cache['/'] = {
+                    'value': None,
+                    'timestamp': timestamp,
+                    'topic': '/',
+                    'virtual': True,
+                    'namespaceUri': None,  # Virtual nodes use default namespace
+                    'typeId': None
+                }
+                self.logger.info("Created virtual root node: /")
+
+    def _ensure_parent_chain(self, topic: str, timestamp: str) -> None:
+        """Create virtual parent nodes for all intermediate path segments.
+
+        For a topic like 'a/b/c/d', creates cache entries for 'a', 'a/b', and 'a/b/c'
+        if they don't already exist. Virtual nodes have None values but proper topic
+        paths so parentId relationships can be resolved.
+
+        Note: Caller must hold cache_lock.
+        """
+        parts = topic.split('/')
+
+        # Build parent paths from root to immediate parent
+        # For 'a/b/c/d', we create: 'a', 'a/b', 'a/b/c'
+        for i in range(1, len(parts)):
+            parent_topic = '/'.join(parts[:i])
+            parent_element_id = self._topic_to_element_id(parent_topic)
+
+            # Only create if not already in cache
+            if parent_element_id not in self.topic_cache:
+                self.topic_cache[parent_element_id] = {
+                    'value': None,  # Virtual node has no value
+                    'timestamp': timestamp,
+                    'topic': parent_topic,
+                    'virtual': True,  # Mark as virtual for debugging
+                    'namespaceUri': None,  # Virtual nodes use default namespace
+                    'typeId': None
+                }
+                self.logger.debug(f"Created virtual parent node: {parent_topic}")
