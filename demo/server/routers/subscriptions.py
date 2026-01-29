@@ -7,7 +7,7 @@ import json
 import time
 from pydantic import BaseModel, Field, ConfigDict
 from models import CreateSubscriptionRequest, CreateSubscriptionResponse
-from models import RegisterMonitoredItemsRequest, SyncResponseItem
+from models import RegisterMonitoredItemsRequest
 from models import GetSubscriptionsResponse, SubscriptionSummary
 from data_sources.data_interface import I3XDataSource
 from .utils import getSubscriptionValue
@@ -239,9 +239,12 @@ async def stream_subscription(request: Request, subscriptionId: str):
     return sub.streaming_response
 
 # RFC 4.2.3.3 Sync
-@subs.post("/subscriptions/{subscriptionId}/sync", summary="Sync Values", response_model=List[SyncResponseItem])
+@subs.post("/subscriptions/{subscriptionId}/sync", summary="Sync Values")
 def sync_subscription(request: Request, subscriptionId: str):
-    """Return and clear queued updates. Works when SSE stream is not active."""
+    """Return and clear queued updates. Works when SSE stream is not active.
+
+    Returns array of value updates in format: [{elementId: {data: [VQT]}}]
+    """
 
     # Locate the subscription
     sub = next(
