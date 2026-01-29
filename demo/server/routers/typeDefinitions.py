@@ -31,9 +31,7 @@ def query_object_types_by_id(
     """
     Get the schema for one or more Types by ElementID.
 
-    Accepts either:
-    - {"elementId": "..."} for single type
-    - {"elementIds": ["...", "..."]} for multiple types
+    Request body: {"elementIds": ["...", "..."]}
 
     Returns array of results, each with success/failure status.
     """
@@ -91,9 +89,7 @@ def query_relationship_types_by_id(
     """
     Get one or more Relationship Types by ElementID.
 
-    Accepts either:
-    - {"elementId": "..."} for single type
-    - {"elementIds": ["...", "..."]} for multiple types
+    Request body: {"elementIds": ["...", "..."]}
 
     Returns array of results, each with success/failure status.
     """
