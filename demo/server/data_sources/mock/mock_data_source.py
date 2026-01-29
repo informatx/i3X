@@ -188,7 +188,7 @@ class MockDataSource(I3XDataSource):
                 # Process this element's records
                 own_value = self._process_records(records_array, startTime, endTime, returnHistory)
                 if own_value is not None:
-                    result["_value"] = own_value
+                    result["data"] = own_value
 
             # Calculate next depth: 0 stays 0 (infinite), otherwise decrement
             next_depth = 0 if maxDepth == 0 else maxDepth - 1

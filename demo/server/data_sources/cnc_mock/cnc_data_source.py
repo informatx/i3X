@@ -116,7 +116,7 @@ class CNCDataSource(I3XDataSource):
             if records_array and isinstance(records_array, list):
                 own_value = self._process_records(records_array, startTime, endTime, returnHistory)
                 if own_value is not None:
-                    result["_value"] = own_value
+                    result["data"] = own_value
 
             # Calculate next depth
             next_depth = 0 if maxDepth == 0 else maxDepth - 1

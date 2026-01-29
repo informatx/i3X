@@ -51,7 +51,7 @@ def query_objects_by_id(
 
     Request body: {"elementIds": ["...", "..."]}
 
-    Returns array of results, each with success/failure status.
+    Returns array of objects.
     """
     element_ids = request_body.get_element_ids()
     results = []
@@ -59,24 +59,9 @@ def query_objects_by_id(
     for eid in element_ids:
         instance = data_source.get_instance_by_id(eid)
         if instance:
-            results.append({
-                "elementId": eid,
-                "success": True,
-                "data": getObject(instance, request_body.includeMetadata)
-            })
-        else:
-            results.append({
-                "elementId": eid,
-                "success": False,
-                "error": f"Instance with elementId '{eid}' not found"
-            })
+            results.append(getObject(instance, request_body.includeMetadata))
 
-    return {
-        "results": results,
-        "totalRequested": len(element_ids),
-        "totalSuccess": sum(1 for r in results if r["success"]),
-        "totalFailed": sum(1 for r in results if not r["success"])
-    }
+    return results
 
 # 4.1.6 Objects linked by Relationship Type
 @explore.post("/objects/related", summary="Query Related Objects")
@@ -89,7 +74,7 @@ def query_related_objects(
 
     Request body: {"elementIds": ["...", "..."]}
 
-    Returns array of results, each with success/failure status.
+    Returns array of related objects.
     """
     element_ids = request_body.get_element_ids()
     results = []
@@ -102,24 +87,10 @@ def query_related_objects(
                 eid_decoded,
                 request_body.relationshiptype
             )
-            results.append({
-                "elementId": eid,
-                "success": True,
-                "data": [getObject(obj, request_body.includeMetadata) for obj in related_objects]
-            })
-        else:
-            results.append({
-                "elementId": eid,
-                "success": False,
-                "error": f"Instance with elementId '{eid}' not found"
-            })
+            for obj in related_objects:
+                results.append(getObject(obj, request_body.includeMetadata))
 
-    return {
-        "results": results,
-        "totalRequested": len(element_ids),
-        "totalSuccess": sum(1 for r in results if r["success"]),
-        "totalFailed": sum(1 for r in results if not r["success"])
-    }
+    return results
 
 
 # RFC 4.2.1.1 - Object Element LastKnown Value
@@ -136,7 +107,7 @@ def query_last_known_values(
 
     Request body: {"elementIds": ["...", "..."]}
 
-    Returns array of results, each with success/failure status.
+    Returns array of values.
     """
     element_ids = request_body.get_element_ids()
     results = []
@@ -152,26 +123,10 @@ def query_last_known_values(
             )
             results.append({
                 "elementId": eid,
-                "success": True,
-                "data": {
-                    "elementId": eid,
-                    "isComposition": instance.get("isComposition", False),
-                    "value": value
-                }
-            })
-        else:
-            results.append({
-                "elementId": eid,
-                "success": False,
-                "error": f"Element '{eid}' not found"
+                "data": value
             })
 
-    return {
-        "results": results,
-        "totalRequested": len(element_ids),
-        "totalSuccess": sum(1 for r in results if r["success"]),
-        "totalFailed": sum(1 for r in results if not r["success"])
-    }
+    return results
 
 # 4.2.2.1 Object Element LastKnownValue
 @update.put("/objects/{elementId}/value", summary="Update Value of Object")
@@ -199,7 +154,7 @@ def query_historical_values(
 
     Request body: {"elementIds": ["...", "..."]}
 
-    Returns array of results, each with success/failure status.
+    Returns array of historical values.
     """
     element_ids = request_body.get_element_ids()
     results = []
@@ -217,22 +172,10 @@ def query_historical_values(
             )
             results.append({
                 "elementId": eid,
-                "success": True,
                 "data": historical_values
             })
-        else:
-            results.append({
-                "elementId": eid,
-                "success": False,
-                "error": f"Element '{eid}' not found"
-            })
 
-    return {
-        "results": results,
-        "totalRequested": len(element_ids),
-        "totalSuccess": sum(1 for r in results if r["success"]),
-        "totalFailed": sum(1 for r in results if not r["success"])
-    }
+    return results
 
 # RFC 4.2.2.2 - Object Element HistoricalValue
 @update.put("/objects/{elementId}/history", summary="Update Historical Values of Object")

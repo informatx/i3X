@@ -131,7 +131,6 @@ I3X_DATA = {
             "records": [
                 {
                     "value": {
-                        "timestamp": "2025-10-29T18:20:44.779036+00:00",
                         "description": "Pump is in maintenance",
                         "color": "#800080",
                         "type": {
@@ -156,7 +155,6 @@ I3X_DATA = {
                 },
                 {
                     "value": {
-                        "timestamp": "2025-10-28T18:20:44.779036+00:00",
                         "description": "Pump is in operation",
                         "color": "#00FF00",
                         "type": {
@@ -179,7 +177,6 @@ I3X_DATA = {
                 },
                 {
                     "value": {
-                        "timestamp": "2025-10-27T18:20:44.779036+00:00",
                         "description": "Pump is in operation",
                         "color": "#FFFF00",
                         "type": {
@@ -228,6 +225,18 @@ I3X_DATA = {
             "relationships": {
                 "HasParent": "pump-101-production",
             },
+            "records": [
+                {
+                    "value": "Product A",
+                    "quality": "GOOD",
+                    "timestamp": "2025-10-28T18:20:44.779036+00:00",
+                },
+                {
+                    "value": "Product B",
+                    "quality": "GOOD",
+                    "timestamp": "2025-10-28T18:20:44.779036+00:00",
+                },
+            ]
         },
         {
             "elementId": "pump-101-measurements",
