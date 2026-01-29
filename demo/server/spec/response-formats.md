@@ -2,8 +2,9 @@
 
 This document describes the response formats used by the I3X API. See `response-schemas.json` for formal JSON Schema definitions.
 
-5 main response formats are described:
+3 main response formats are described:
 
+```
 ┌─────────────────┬───────────────────────────────────────┬────────────────────────────────────┬─────────────────────────────────────────────────┐
 │     Format      │               Endpoints               │             Structure              │                     Example                     │
 ├─────────────────┼───────────────────────────────────────┼────────────────────────────────────┼─────────────────────────────────────────────────┤
@@ -23,6 +24,7 @@ This document describes the response formats used by the I3X API. See `response-
 │ Update Result   │ PUT /objects/{elementId}/value        │ Operation result                   │ {"elementId": "...", "success": true,           │
 │                 │                                       │                                    │ "message": "Updated successfully"}              │
 └─────────────────┴───────────────────────────────────────┴────────────────────────────────────┴─────────────────────────────────────────────────┘
+```
 
 ## Core Concepts
 
