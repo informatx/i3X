@@ -208,7 +208,7 @@ I3X_DATA = {
             # This element has related data, but that data is not a part of the definition of this data, so it is not complex
             "isComposition": False,
             "relationships": {
-                "HasParent": "pump-101",
+                "ComponentOf": "pump-101",
                 # Related classes, not a part of the definition of this element. Client can "dig" through HasChildren as needed
                 "HasChildren": [
                     "pump-101-production-product",
@@ -247,7 +247,7 @@ I3X_DATA = {
             # This element has related data, and that data IS a part of the definition of this data, so it IS complex
             "isComposition": True,
             "relationships": {
-                "HasParent": "pump-101",
+                "ComponentOf": "pump-101",
                 "HasComponent": [
                     "pump-101-bearing-temperature",
                 ],

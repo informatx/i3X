@@ -110,7 +110,7 @@ def query_last_known_values(
     Returns array of values.
     """
     element_ids = request_body.get_element_ids()
-    results = []
+    result = {}
 
     for eid in element_ids:
         eid_decoded = unquote(eid)
@@ -121,12 +121,11 @@ def query_last_known_values(
                 maxDepth=request_body.maxDepth,
                 returnHistory=False
             )
-            results.append({
-                "elementId": eid,
-                "data": value
-            })
+            if value:
+                # Merge into result (value is {elementId: {...}})
+                result.update(value)
 
-    return results
+    return result
 
 # 4.2.2.1 Object Element LastKnownValue
 @update.put("/objects/{elementId}/value", summary="Update Value of Object")
@@ -157,7 +156,7 @@ def query_historical_values(
     Returns array of historical values.
     """
     element_ids = request_body.get_element_ids()
-    results = []
+    result = {}
 
     for eid in element_ids:
         eid_decoded = unquote(eid)
@@ -170,12 +169,11 @@ def query_historical_values(
                 request_body.maxDepth,
                 returnHistory=True
             )
-            results.append({
-                "elementId": eid,
-                "data": historical_values
-            })
+            if historical_values:
+                # Merge into result (value is {elementId: {...}})
+                result.update(historical_values)
 
-    return results
+    return result
 
 # RFC 4.2.2.2 - Object Element HistoricalValue
 @update.put("/objects/{elementId}/history", summary="Update Historical Values of Object")

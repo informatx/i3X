@@ -70,13 +70,13 @@ class TestI3XEndpoints(unittest.TestCase):
     def test_object_definition_endpoint(self):
         """Test RFC 4.1.8 - Object Definition (POST /objects/list)"""
         # Test single elementId (via array)
-        response = self.client.post("/objects/list", json={"elementIds": ["cnc-001"]})
+        response = self.client.post("/objects/list", json={"elementIds": ["pump-101"]})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(data, list)
         self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["elementId"], "cnc-001")
+        self.assertEqual(data[0]["elementId"], "pump-101")
 
         # Test non-existent object (returns empty array)
         response = self.client.post("/objects/list", json={"elementIds": ["non-existent"]})
@@ -87,7 +87,7 @@ class TestI3XEndpoints(unittest.TestCase):
     def test_object_definition_batch(self):
         """Test RFC 4.1.8 - Object Definition batch query"""
         response = self.client.post("/objects/list", json={
-            "elementIds": ["cnc-001", "cnc-001-spindle", "non-existent"]
+            "elementIds": ["pump-101", "pump-101-state", "non-existent"]
         })
         data = response.json()
 
@@ -98,36 +98,39 @@ class TestI3XEndpoints(unittest.TestCase):
     def test_last_known_value_endpoint(self):
         """Test RFC 4.2.1.1 - Object Element LastKnownValue (POST /objects/value)"""
         # Test single elementId (via array)
-        response = self.client.post("/objects/value", json={"elementIds": ["cnc-001-status"]})
+        response = self.client.post("/objects/value", json={"elementIds": ["pump-101-state"]})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
-        self.assertIsInstance(data, list)
-        self.assertEqual(len(data), 1)
-        self.assertIn("elementId", data[0])
-        self.assertIn("data", data[0])
+        self.assertIsInstance(data, dict)
+        # Structure is {elementId: {data: [VQT], ...children}}
+        self.assertIn("pump-101-state", data)
+        self.assertIn("data", data["pump-101-state"])
+        self.assertIsInstance(data["pump-101-state"]["data"], list)
 
         # Test with maxDepth (0=infinite, 2=recurse to depth 2)
-        response = self.client.post("/objects/value", json={"elementIds": ["cnc-001"], "maxDepth": 2})
+        response = self.client.post("/objects/value", json={"elementIds": ["pump-101"], "maxDepth": 2})
         data = response.json()
         self.assertEqual(response.status_code, 200)
-        self.assertIsInstance(data, list)
+        self.assertIsInstance(data, dict)
 
     def test_last_known_value_batch(self):
         """Test RFC 4.2.1.1 - LastKnownValue batch query"""
         response = self.client.post("/objects/value", json={
-            "elementIds": ["cnc-001-status", "cnc-001-spindle"],
+            "elementIds": ["pump-101-state", "pump-101-measurements"],
             "maxDepth": 1
         })
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
-        self.assertIsInstance(data, list)
-        self.assertEqual(len(data), 2)
+        self.assertIsInstance(data, dict)
+        # Both elements should be keys in the response
+        self.assertIn("pump-101-state", data)
+        self.assertIn("pump-101-measurements", data)
 
     def test_related_objects_endpoint(self):
         """Test RFC 4.1.6 - Related Objects (POST /objects/related)"""
-        response = self.client.post("/objects/related", json={"elementIds": ["cnc-001"]})
+        response = self.client.post("/objects/related", json={"elementIds": ["pump-101"]})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -135,14 +138,15 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_historical_values_endpoint(self):
         """Test RFC 4.2.1.2 - Historical Values (POST /objects/history)"""
-        response = self.client.post("/objects/history", json={"elementIds": ["cnc-001-status"]})
+        response = self.client.post("/objects/history", json={"elementIds": ["pump-101-state"]})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
-        self.assertIsInstance(data, list)
-        self.assertEqual(len(data), 1)
-        self.assertIn("elementId", data[0])
-        self.assertIn("data", data[0])
+        self.assertIsInstance(data, dict)
+        # Structure is {elementId: {data: [VQT...], ...children}}
+        self.assertIn("pump-101-state", data)
+        self.assertIn("data", data["pump-101-state"])
+        self.assertIsInstance(data["pump-101-state"]["data"], list)
 
     def test_relationship_type_query_endpoint(self):
         """Test RFC 4.1.4 - Relationship Type query (POST /relationshiptypes/query)"""

@@ -344,11 +344,26 @@ class MQTTDataSource(I3XDataSource):
     ) -> Optional[Dict[str, Any]]:
         """Return instance values by ElementId.
 
-        Note: MQTT data source does not support historical values or composition depth.
-        maxDepth and returnHistory parameters are accepted but ignored.
+        Returns nested structure: {elementId: {data: [VQT]}}
+        - 'data' is the reserved key for this element's VQT array
+        - MQTT topics don't support composition, so no children are included
+
+        Note: MQTT data source does not support historical values.
+        startTime, endTime, and returnHistory parameters are accepted but ignored.
         """
-        value = self.get_topic_value(element_id)
-        return value
+        topic_data = self.get_topic_value(element_id)
+        if topic_data is None:
+            return None
+
+        # Build VQT from cached topic data
+        vqt = {
+            "value": topic_data.get("value"),
+            "quality": "GOOD",
+            "timestamp": topic_data.get("timestamp")
+        }
+
+        # Return in new format: {elementId: {data: [VQT]}}
+        return {element_id: {"data": [vqt]}}
 
     def get_relationship_types(self, namespace_uri: Optional[str] = None) -> List[Dict[str, Any]]:
         """Return relationship types inferred from MQTT topic hierarchy"""

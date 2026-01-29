@@ -159,6 +159,11 @@ class MockDataSource(I3XDataSource):
         maxDepth: int = 1,
         returnHistory: bool = False,
     ):
+        """
+        Returns nested structure: {elementId: {data: [VQT...], childId: {...}, ...}}
+        - 'data' is the reserved key for this element's VQT array
+        - Other keys are child elementIds (HasComponent relationships)
+        """
         instance = self.get_instance_by_id(element_id, values=True)
 
         if not instance:
@@ -175,50 +180,46 @@ class MockDataSource(I3XDataSource):
         if isinstance(composed_of, str):
             composed_of = [composed_of]
 
+        # Build the inner result object (will be wrapped with elementId as key)
+        inner_result = {}
+
+        # Process this element's own value if it has records
+        if records_array and isinstance(records_array, list):
+            own_vqt = self._process_records(records_array, startTime, endTime, returnHistory)
+            if own_vqt is not None:
+                if isinstance(own_vqt, list):
+                    inner_result["data"] = own_vqt
+                else:
+                    inner_result["data"] = [own_vqt]
+            else:
+                inner_result["data"] = []
+        else:
+            inner_result["data"] = []
+
         # Check if we should recurse into HasComponent relationships
         # maxDepth=0 means infinite recursion, maxDepth>1 means recurse to that depth
         should_recurse = (maxDepth == 0 or maxDepth > 1)
 
         if should_recurse and composed_of:
-            # Build result with composed children
-            result = {}
-
-            # Include this element's own value if it has records
-            if records_array and isinstance(records_array, list):
-                # Process this element's records
-                own_value = self._process_records(records_array, startTime, endTime, returnHistory)
-                if own_value is not None:
-                    result["data"] = own_value
-
             # Calculate next depth: 0 stays 0 (infinite), otherwise decrement
             next_depth = 0 if maxDepth == 0 else maxDepth - 1
 
             # Recursively fetch each composed child's value
-            # Always include composed children, even if they have no value
             for child_id in composed_of:
-                child_value = self.get_instance_values_by_id(
+                child_result = self.get_instance_values_by_id(
                     child_id,
                     startTime,
                     endTime,
                     next_depth,
                     returnHistory
                 )
-                # Always include the child in the result
-                # Use null/empty dict as placeholder if no value
-                result[child_id] = child_value if child_value is not None else {}
+                if child_result is not None:
+                    # Child result is {childId: {...}}, extract the inner part
+                    child_inner = child_result.get(child_id, {})
+                    inner_result[child_id] = child_inner
 
-            return result
-
-        # If no records and no HasComponent relationships, return None
-        if not records_array or not isinstance(records_array, list):
-            # For composition elements with children but maxDepth=1 (no recursion),
-            # return empty object to indicate there's a structure but it wasn't expanded
-            if composed_of:
-                return {}
-            return None
-
-        # No recursion needed, just process and return the records
-        return self._process_records(records_array, startTime, endTime, returnHistory)
+        # Return wrapped with elementId as key
+        return {element_id: inner_result}
 
     def _process_records(self, records_array, startTime, endTime, returnHistory):
         """Helper method to process records array and return value with metadata"""
