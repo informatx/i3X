@@ -34,8 +34,8 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_object_type_definition_endpoint(self):
         """Test RFC 4.1.2 - Object Type Definition (POST /objecttypes/query)"""
-        # Test single elementId (via array)
-        response = self.client.post("/objecttypes/query", json={"elementIds": ["work-center-type"]})
+        # Test single elementId
+        response = self.client.post("/objecttypes/query", json={"elementId": "work-center-type"})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -45,7 +45,7 @@ class TestI3XEndpoints(unittest.TestCase):
         self.assertTrue(data["results"][0]["success"])
 
         # Test non-existent type (returns success=false in results, not 404)
-        response = self.client.post("/objecttypes/query", json={"elementIds": ["non-existent"]})
+        response = self.client.post("/objecttypes/query", json={"elementId": "non-existent"})
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(data["totalFailed"], 1)
@@ -72,8 +72,8 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_object_definition_endpoint(self):
         """Test RFC 4.1.8 - Object Definition (POST /objects/list)"""
-        # Test single elementId (via array)
-        response = self.client.post("/objects/list", json={"elementIds": ["cnc-001"]})
+        # Test single elementId
+        response = self.client.post("/objects/list", json={"elementId": "cnc-001"})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -82,7 +82,7 @@ class TestI3XEndpoints(unittest.TestCase):
         self.assertTrue(data["results"][0]["success"])
 
         # Test non-existent object (returns success=false in results, not 404)
-        response = self.client.post("/objects/list", json={"elementIds": ["non-existent"]})
+        response = self.client.post("/objects/list", json={"elementId": "non-existent"})
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(data["totalFailed"], 1)
@@ -102,8 +102,8 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_last_known_value_endpoint(self):
         """Test RFC 4.2.1.1 - Object Element LastKnownValue (POST /objects/value)"""
-        # Test single elementId (via array)
-        response = self.client.post("/objects/value", json={"elementIds": ["cnc-001-status"]})
+        # Test single elementId
+        response = self.client.post("/objects/value", json={"elementId": "cnc-001-status"})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -113,7 +113,7 @@ class TestI3XEndpoints(unittest.TestCase):
         self.assertIn("value", data["results"][0]["data"])
 
         # Test with maxDepth (0=infinite, 2=recurse to depth 2)
-        response = self.client.post("/objects/value", json={"elementIds": ["cnc-001"], "maxDepth": 2})
+        response = self.client.post("/objects/value", json={"elementId": "cnc-001", "maxDepth": 2})
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertTrue(data["results"][0]["success"])
@@ -132,7 +132,7 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_related_objects_endpoint(self):
         """Test RFC 4.1.6 - Related Objects (POST /objects/related)"""
-        response = self.client.post("/objects/related", json={"elementIds": ["cnc-001"]})
+        response = self.client.post("/objects/related", json={"elementId": "cnc-001"})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -141,7 +141,7 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_historical_values_endpoint(self):
         """Test RFC 4.2.1.2 - Historical Values (POST /objects/history)"""
-        response = self.client.post("/objects/history", json={"elementIds": ["cnc-001-status"]})
+        response = self.client.post("/objects/history", json={"elementId": "cnc-001-status"})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -150,7 +150,7 @@ class TestI3XEndpoints(unittest.TestCase):
 
     def test_relationship_type_query_endpoint(self):
         """Test RFC 4.1.4 - Relationship Type query (POST /relationshiptypes/query)"""
-        response = self.client.post("/relationshiptypes/query", json={"elementIds": ["HasComponent"]})
+        response = self.client.post("/relationshiptypes/query", json={"elementId": "HasComponent"})
         data = response.json()
 
         self.assertEqual(response.status_code, 200)
@@ -158,13 +158,16 @@ class TestI3XEndpoints(unittest.TestCase):
         # Note: success depends on whether HasComponent exists in the mock data
 
     def test_request_validation_errors(self):
-        """Test request validation - must provide elementIds array"""
-        # elementIds not provided
+        """Test request validation - must provide elementId or elementIds"""
+        # Neither provided
         response = self.client.post("/objects/list", json={})
         self.assertEqual(response.status_code, 422)
 
-        # Empty array provided
-        response = self.client.post("/objects/list", json={"elementIds": []})
+        # Both provided
+        response = self.client.post("/objects/list", json={
+            "elementId": "cnc-001",
+            "elementIds": ["cnc-001-spindle"]
+        })
         self.assertEqual(response.status_code, 422)
 
     def test_hierarchical_relationships_endpoint(self):
