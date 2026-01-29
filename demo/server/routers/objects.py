@@ -49,9 +49,7 @@ def query_objects_by_id(
     """
     Return one or more Objects by elementId.
 
-    Accepts either:
-    - {"elementId": "..."} for single object
-    - {"elementIds": ["...", "..."]} for multiple objects
+    Request body: {"elementIds": ["...", "..."]}
 
     Returns array of results, each with success/failure status.
     """
@@ -89,9 +87,7 @@ def query_related_objects(
     """
     Return related objects for one or more elementIds.
 
-    Accepts either:
-    - {"elementId": "..."} for single object
-    - {"elementIds": ["...", "..."]} for multiple objects
+    Request body: {"elementIds": ["...", "..."]}
 
     Returns array of results, each with success/failure status.
     """
@@ -138,9 +134,7 @@ def query_last_known_values(
     If maxDepth=0, recursively includes all values from HasComponent children (infinite depth).
     Otherwise, recurses only to the specified depth (1=no recursion, just this element).
 
-    Accepts either:
-    - {"elementId": "..."} for single object
-    - {"elementIds": ["...", "..."]} for multiple objects
+    Request body: {"elementIds": ["...", "..."]}
 
     Returns array of results, each with success/failure status.
     """
@@ -203,9 +197,7 @@ def query_historical_values(
     If maxDepth=0, recursively includes all values from HasComponent children (infinite depth).
     Otherwise, recurses only to the specified depth (1=no recursion, just this element).
 
-    Accepts either:
-    - {"elementId": "..."} for single object
-    - {"elementIds": ["...", "..."]} for multiple objects
+    Request body: {"elementIds": ["...", "..."]}
 
     Returns array of results, each with success/failure status.
     """

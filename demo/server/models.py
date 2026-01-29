@@ -177,24 +177,19 @@ class GetSubscriptionsResponse(BaseModel):
 # Request models for POST endpoints (GET to POST refactor)
 
 class ElementIdRequest(BaseModel):
-    """Base request model that accepts either a single elementId or multiple elementIds"""
-    elementId: Optional[str] = Field(None, description="Single element ID to query")
-    elementIds: Optional[List[str]] = Field(None, description="Array of element IDs to query")
+    """Base request model that accepts an array of elementIds"""
+    elementIds: List[str] = Field(..., description="Array of element IDs to query")
 
     @model_validator(mode='after')
     def validate_element_ids(self):
-        """Ensure exactly one of elementId or elementIds is provided"""
-        if self.elementId is None and self.elementIds is None:
-            raise ValueError("Either 'elementId' or 'elementIds' must be provided")
-        if self.elementId is not None and self.elementIds is not None:
-            raise ValueError("Cannot specify both 'elementId' and 'elementIds'")
+        """Ensure at least one elementId is provided"""
+        if not self.elementIds:
+            raise ValueError("'elementIds' must contain at least one element")
         return self
 
     def get_element_ids(self) -> List[str]:
-        """Helper to normalize to list regardless of input format"""
-        if self.elementId:
-            return [self.elementId]
-        return self.elementIds or []
+        """Helper to get the list of element IDs"""
+        return self.elementIds
 
 
 class GetObjectsRequest(ElementIdRequest):
