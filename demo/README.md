@@ -1,12 +1,12 @@
 # Understanding the Demo Model
 
-The [mock data Demo Model](server/data_sources/mock) illustrates the complexity of the required and optional relationships that i3X supports. Its critical to understand the differences between each, and the implications of supporting them:
+The [mock data Demo Model](server/data_sources/mock) illustrates the complexity of the required and optional relationships that i3X supports. In i3X any structure of data (asset, machine, process, payload) is an __object__. Its critical to understand the differences in how objects are related to each other, and the implications of supporting those relationship types:
 
 - **Hierarchical Relationships**: one object *organizes* one or more other objects
 - **Composition Relationships**: one object is *made up of* one or more other objects
 - **Graph Relationships**: *any* other relationship between objects
 
-i3X Implementations must support Hierarchical and Composition Relationships. Graph relationships are optional in the RFC.
+i3X Implementations must support Hierarchical Relationships and should support Composition Relationships, if possible. Graph relationships are optional in the RFC.
 
 ## Relationship Types in Brief
 
