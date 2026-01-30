@@ -1,6 +1,6 @@
 # Understanding the Demo Model
 
-The (mock data Demo Model)[/server/data_sources/mock] illustrates the complexity of relationships that i3X supports -- both the required and optional. Its critical to understand the differences between each, and the implications of supporting them:
+The [mock data Demo Model](/server/data_sources/mock) illustrates the complexity of relationships that i3X supports -- both the required and optional. Its critical to understand the differences between each, and the implications of supporting them:
 
 - Hierarchical Relationships: one object *organizes* one or more other objects
 - Composition Relationships: one object is *made up of* one or more other objects
