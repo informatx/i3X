@@ -9,7 +9,7 @@ The guide supplements the OpenAPI specification (`openapi.yaml`), which defines 
 This document is a working draft, and should not be considered complete or normative. This guide is derived from RFC 001 "Common API for Industrial Information Interface eXchange (i3X)". All contents are subject to change.
 
 > **Work in Progress Notes**
-> -Define a versioning scheme to introduce changes over time
+> - Define a versioning scheme to introduce changes over time
 > - Define a version endpoint clients can use to discover server version and capabilities
 > - Define optional pagination on the GET/LIST routes that could return a lot of data
 > - Add acknowledgement as part of subscription /sync
