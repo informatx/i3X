@@ -16,7 +16,7 @@ This relationship type is commonly used in an ISA-95 asset hierarchy. UNS implem
 
 Hierarchical relationships are used to model how an object is externally related to other objects: each child object may have a single parent; each parent object may have many child objects.
 
-In a manufacturing operation, a "Plant" object may have many "Lines". What's key is that a hierarchical relationship is between two independent objects.
+In a manufacturing operation, a "Plant" object may have many "Lines". What's key is that a hierarchical relationship is between independent objects.
 
 ### Composition Relationships (Recommended)
 
