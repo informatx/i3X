@@ -48,26 +48,108 @@ And while the average data consumer may be interested in all the pump measuremen
 
 ## i3X Relationship Expression
 
-i3X payload formats support all of these relationship types. The following code block shows how this is accomplished in full. Below you will see an excerpt for each example.
-
-```
-<big code sample>
-```
+i3X payload formats support all of these relationship types. The following code exercpts shows how each relationship is serialized.
 
 - Hierarchical relationships from a parent organizing children:
-`<code sample>`
+
+```
+{
+    "elementId": "pump-station",
+    "displayName": "pump-station",
+    "namespaceUri": "https://isa.org/isa95",
+    "typeId": "work-center-type",
+    "parentId": "/",
+    "isComposition": false,
+    "relationships": {
+      "HasParent": "/",
+      "HasChildren": [
+        "pump-101",
+        "tank-201",
+        "sensor-001"
+      ]
+    }
+}
+```
 
 - Hierarchical relationships from a child identifying its parent:
-`<code sample>`
+
+```
+{
+    "elementId": "pump-101-state",
+    "displayName": "pump-101 State",
+    "typeId": "state-type",
+    "namespaceUri": "https://abelara.com/equipment",
+    "parentId": "pump-101",
+    "isComposition": false
+}
+```
 
 - Composition relationships showing an object encapsulating its members:
-`<code sample>`
 
-- Composition relationships showing an encapsulated member related to its composing parent:
-`<code sample>`
+``` 
+{
+    "elementId": "pump-101-measurements",
+    "displayName": "pump-101 Measurements",
+    "namespaceUri": "https://abelara.com/equipment",
+    "typeId": "measurements-type",
+    "parentId": "pump-101",
+    "isComposition": true,
+    "relationships": {
+      "ComponentOf": "pump-101",
+      "HasComponent": [
+        "pump-101-bearing-temperature"
+      ]
+    }
+}
+```
+
+- Composition relationships showing an encapsulated member related to the object that encapsulates it:
+
+```
+{
+    "elementId": "pump-101-state",
+    "displayName": "pump-101 State",
+    "typeId": "state-type",
+    "parentId": "pump-101",
+    "isComposition": false,
+    "namespaceUri": "https://abelara.com/equipment",
+    "relationships": {
+      "ComponentOf": "pump-101"
+    }
+}
+```
 
 - Graph relationships shown in one direction between two objects:
-`<code sample>`
+
+```
+{
+    "elementId": "sensor-001",
+    "displayName": "TempSensor-101",
+    "namespaceUri": "https://thinkiq.com/equipment",
+    "typeId": "sensor-type",
+    "parentId": "pump-station",
+    "isComposition": false,
+    "relationships": {
+      "Monitors": "tank-201"
+    },
+    "engUnit": "CEL",
+    "calibrationDate": "2025-01-15"
+  }
+```
 
 - Graph relationships shown in the reverse direction between two objects:
-`<code sample>`
+
+```
+{
+    "elementId": "tank-201",
+    "displayName": "tank-201",
+    "namespaceUri": "https://isa.org/isa95",
+    "typeId": "work-unit-type",
+    "parentId": "pump-station",
+    "isComposition": false,
+    "relationships": {
+      "SuppliedBy": "pump-101",
+      "MonitoredBy": "sensor-001"
+    }
+}
+```
