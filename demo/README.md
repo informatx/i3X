@@ -3,7 +3,7 @@
 The Demo Model illustrates the complexity of relationships that i3X supports -- both the required and optional. Its critical to understand the differences between each, and the implications of supporting them:
 
 - Hierarchical Relationships: one object *organizes* one or more other objects
-- Composition Relationships: one object is *made up of* (encapsulates) one or more other objects
+- Composition Relationships: one object is *made up of* one or more other objects
 - Graph Relationships: *any* other relationship between objects
 
 i3X Implementations must support Hierarchical and Composition Relationships. Graph relationships are optional in the RFC.
@@ -22,9 +22,9 @@ In a manufacturing operation, a "Plant" object may have many "Lines". What's key
 
 This relationship type is when an object typically requires another object as part of its definition. A machine that cannot function without an internal component would usually be a composition. However, an information model may still need to identify the internal component, so its data is still defined as a separate, sub-object of the parent machine.
 
-Composition may also be known as encapsulation. Encapsulation is an important Object Oriented Programming concept that indicates independence of, and sometimes the hiding of, a structure. Another analogy could be a human being -- each of us is an independent construct, complete unto ourselves -- yet we are made up of complete independent parts: a heart, lungs, a brain. While the average human being needs only interface with other externally encapsulated human beings, specialists, like a heart surgeon, need to interact with an internally encapsulated component.
+Composition may also be known as encapsulation. Encapsulation is an important Object Oriented Programming concept that indicates independence of, and sometimes the hiding of, a structure. Think of a person: we interact with each other as whole individuals, but a surgeon needs access to internal organs. Composition relationships work the same way — most consumers see the whole object, but specialists can access its internal parts.
 
-When modeling information, its important to be able to express an composition relationship between two objects to indicate such internal encapsulation.
+When modeling information, its important to be able to express an composition relationship between two objects to indicate how objects are encapsulated.
 
 ### Graph Relationships
 
@@ -48,7 +48,7 @@ And while the average data consumer may be interested in all the pump measuremen
 
 ## i3X Relationship Expression
 
-i3X payload formats support all of these relationship types. The following excerpt shows how this is accomplished in full. Below you will see an except for each example.
+i3X payload formats support all of these relationship types. The following code block shows how this is accomplished in full. Below you will see an excerpt for each example.
 
 ```
 <big code sample>
