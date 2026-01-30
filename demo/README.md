@@ -30,7 +30,7 @@ When modeling information, its important to be able to express a composition rel
 
 This relationship type encompasses any relationship not expressed by the other two relationship types. Graph relationships in i3X are bi-directional "edges" between "node" objects. Each graph relationship has an inverse: a pump has a "suppliesTo" relationship with a tank, therefore conversely, a tank has a "suppliedBy" relationship with a pump.
 
-While parent-child relationships *can* be expressed in this fashion, those hierarchical relationships are common enough that they have their own pre-defined relationship type. Graph relationships, then express the full richness of non-hierarchical interactions in manufacturing. They can span a single process unit, articulating the physics or flow of the operation, or across supply chains, articulating how parts or raw materials come together to form a finished good.
+While parent-child relationships *can* be expressed in this fashion, those hierarchical relationships are common enough that they have their own pre-defined relationship type. Graph relationships express the full richness of non-hierarchical interactions in manufacturing. They can span a single process unit, articulating the physics or flow of the operation, or across supply chains, articulating how parts or raw materials come together to form a finished good.
 
 ## Demo Model Relationships
 
