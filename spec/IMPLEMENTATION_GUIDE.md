@@ -267,8 +267,8 @@ When an Object is read via the `/objects/value` API it returns the value of the 
 **Requirements:**
 
 - An Object SHOULD have a `typeId`
-- When the `typeId` is set the Objects value MUST conform to the Object Type schema.
-- Objects MAY not have a backing Object Type. In this case the `typed` is left as an empty string ""
+- When the `typeId` is set, the Object's value MUST conform to the Object Type schema.
+- Objects MAY not have a backing Object Type. In this case the `typeId` is left as an empty string ""
 
 ## Exploratory Methods
 
@@ -345,6 +345,7 @@ Returns one or more Object Types given a collection of elementIds.
 **Response:**
 
 [TODO] is this the response format we want? So we want to support partial success here?
+MGP: Status for each element discussed here: https://github.com/cesmii/i3X/issues/26 Also, can totalSuccess be removed, since primary interest is totalFailed and Success can be derived from totalRequested-totalFailed
 
 ```json
 {
@@ -486,31 +487,36 @@ Returns a list of all Objects, optionally filtered by `typeId`. This allows a cl
 ```
 
 [TODO] - Why do we have both parentId and relationships metadata? Doesn't this overlap with /objects/related?
+  MGP: /objects/related returns the actual objects that are related.  The relationships identifies what is related without returning the related objects.
 [TODO] - should we package metadata under 'required'/spec section and a place for custom server metadata?
+  MGP: The demo puts custom server metadata along side the object metadata, such as "operationStartDate" in the pump-101 element.
 
 ---
 
 #### `POST` /objects/list
 
-Returns one or more Objects given a collection of elementIds.
+Returns one or more Objects without data/values given a collection of elementIds.
 
 **Request Body:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `elementIds` | string[] | Yes | One or more elementIds to query |
+| `includeMetadata` | boolean | No | Optionally include metadata in the response. |
 
 ```json
 {
   "elementIds": [
     "string"
-  ]
+  ],
+  "includeMetadata": false
 }
 ```
 
 **Response:**
 
 ```json
+/// No metadata
 {
   "results": [
     {
@@ -523,6 +529,34 @@ Returns one or more Objects given a collection of elementIds.
         "parentId": "",
         "isComposition": false,
         "namespaceUri": "string"
+      }
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+
+// With metadata
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   {
+        "elementId": "string",
+        "displayName": "string",
+        "typeId": "string",
+        "parentId": "",
+        "isComposition": false,
+        "namespaceUri": "string"
+        "relationships": {
+          "HasParent": "/",
+          "HasChildren": [
+            "child1",
+            "child2"
+          ]
+        }
       }
     }
   ],
@@ -544,7 +578,7 @@ Returns related Objects, with the option to filter on a Relationship Type.
 |-------|------|----------|-------------|
 | `elementIds` | string[] | Yes | List of elementIds to browse for relationships |
 | `relationshiptype` | string | No | The elementId of the Relationship Type to filter on. Leave out or set to null to get all related Objects. |
-| `includeMetadata` | boolean | No | [TODO] need to define/describe what this flag does in the response? |
+| `includeMetadata` | boolean | No | [TODO] need to define/describe what this flag does in the response?  MGP - it should respond similar to /objects/list.  Added to response |
 
 ```json
 {
@@ -561,6 +595,7 @@ Returns related Objects, with the option to filter on a Relationship Type.
 Returns an array of related Object definitions for each related Object.
 
 ```json
+/// No metadata
 {
   "results": [
     {
@@ -573,6 +608,34 @@ Returns an array of related Object definitions for each related Object.
         "parentId": "",
         "isComposition": false,
         "namespaceUri": "string"
+      }]
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+
+/// With Metadata
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   [{
+        "elementId": "string",
+        "displayName": "string",
+        "typeId": "string",
+        "parentId": "",
+        "isComposition": false,
+        "namespaceUri": "string"
+        "relationships": {
+          "HasParent": "/",
+          "HasChildren": [
+            "child1",
+            "child2"
+          ]
+        }
       }]
     }
   ],
@@ -661,7 +724,7 @@ Returns the last known value for one or more Objects.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `elementIds` | string[] | Yes | One or more elementIds to query |
-| `maxDepth` | integer | No | [TODO] - need to define this with clear examples. Can you filter this on a relationship type or does it traverse all relationships? |
+| `maxDepth` | integer | No | [TODO] - need to define this with clear examples. Can you filter this on a relationship type or does it traverse all relationships? MGP: I believe it only traverses hasComponent relationships.  vNext could add a relationship type parameter to deviate from default of hasComponent |
 
 ```json
 {
@@ -674,7 +737,7 @@ Returns the last known value for one or more Objects.
 
 **Response:**
 
-[TODO] we need to review this payload structure, elementId is duplicated
+[TODO] we need to review this payload structure, elementId is duplicated.  MGP- sync up reponse with v0.1.2
 
 ```json
 {
@@ -706,6 +769,8 @@ Returns the last known value for one or more Objects.
 #### `POST` /objects/history
 
 Returns the historical values for one or more Objects between a start and end time.
+
+[TODO] - Sync reponse with v0.1.2
 
 **Request Body:**
 
@@ -835,7 +900,7 @@ Clients must first create a subscription in the server. Subscriptions have the f
 
 - The server MUST provide a unique subscriptionId to the client
 - [TODO] it would probably be useful for the client to be able to provide a name or some client id for the subscription to be returned in GET?
-- Servers SHOULD NOT share subscriptions across clients
+- Servers SHOULD NOT share subscriptions across clients  [TODO] MGP - how will an i3X server know this?  Plus, I propose the technology/API should allow sharing subscriptions between clients, if the desire is to have a setup similar to multicast (any client can subscribe to this ID for all the data it needs to know)
 
 ---
 
@@ -859,6 +924,7 @@ Create a subscription.
 #### `GET` /subscriptions
 
 List all subscriptions that the client has created.
+[TODO] - how does a server know which subscriptions a client created, especially after a disconnect/connect event? Should we specify clientID as a parameter for `POST` /subscriptions and `GET` /subscriptions?
 
 **Parameters:** None
 
@@ -942,7 +1008,7 @@ Once a Subscription is created, a client can add and remove Objects to the Subsc
 - Servers SHOULD queue the updates and deliver them FIFO to clients
 - Servers SHOULD have a limit on how many updates they can queue, and when reached, start dropping older updates first
 
-[TODO] - how does a server signal a client that this is or has happened?
+[TODO] - how does a server signal a client that this is or has happened?  MGP- "this happened" referring to dropped data?  Maybe through some additional data in the `GET` /subscription.  Add some timestamp for when data was last dropped?  Maybe something more creative, also?
 
 ---
 
@@ -963,7 +1029,7 @@ Register one or more Objects with a Subscription.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `elementIds` | string[] | Yes | One or more elementIds to register |
-| `maxDepth` | integer | No | Controls recursion depth |
+| `maxDepth` | integer | No | Controls recursion depth | [TODO] - MGP explain how maxDepth works.  Similar to values, where it only follows hasComponent relationships?
 
 ```json
 {
@@ -1031,7 +1097,7 @@ Unregister one or more Objects from a Subscription.
 
 ### Streaming
 
-Streaming sends values on the subscription to the client asap using SSE (Server Sent Events).
+Streaming sends values on the subscription to the client as they occur using SSE (Server Sent Events).
 
 **How it works:**
 
@@ -1040,8 +1106,7 @@ Streaming sends values on the subscription to the client asap using SSE (Server 
    - The server starts queuing value changes for Objects
 3. Client opens SSE stream via `GET /subscriptions/{id}/stream`
    - The server sends any values queued while the stream was closed
-   - The server sends new values asap
-4. Server pushes updates as they occur
+4. Server sends values as they occur
 
 If the SSE connection is lost, the client can call the /stream endpoint again to re-open it.
 
@@ -1049,10 +1114,11 @@ If the SSE connection is lost, the client can call the /stream endpoint again to
 
 #### `GET` /subscriptions/{subscriptionId}/stream
 
-Opens an SSE stream on the subscription to stream back value changes.
+Opens an SSE stream on the subscription to stream value changes from the server.
 
 - Server MUST only allow a single SSE stream per subscription
   - [TODO] is this enough or should we spec what happens if you spam the /stream endpoint? Ignore? Close the old and open new?
+  - MGP - should multiple clients be allowed to connect in a multcast-type pattern?
 - The Server MUST send queued updates when the stream is open
 - Clients MAY not receive updates if there are no value changes
   - [TODO] should register require queuing the current value of the Object?
