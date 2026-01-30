@@ -137,13 +137,13 @@ async def get_object_type(base_url: str = None, element_id: str = None):
     if element_id is None:
         raise TypeError("element_id cannot be None")
     url = f"{base_url}/objecttypes/query"
-    payload = {"elementId": element_id}
+    payload = {"elementIds": [element_id]}
     response = await post(url, payload)
-    # Extract first result from new response format
-    if response.get("results") and response["results"][0].get("success"):
-        return response["results"][0]["data"]
-    elif response.get("results"):
-        raise Exception(response["results"][0].get("error", "Object type not found"))
+    # Response is an array of matching types
+    if isinstance(response, list) and len(response) > 0:
+        return response[0]
+    elif isinstance(response, list):
+        raise Exception("Object type not found")
     return response
 
 
@@ -186,13 +186,13 @@ async def get_relationship_type(base_url: str = None, element_id: str = None):
     if element_id is None or element_id == "":
         raise TypeError("element_id cannot be None")
     url = f"{base_url}/relationshiptypes/query"
-    payload = {"elementId": element_id}
+    payload = {"elementIds": [element_id]}
     response = await post(url, payload)
-    # Extract first result from new response format
-    if response.get("results") and response["results"][0].get("success"):
-        return response["results"][0]["data"]
-    elif response.get("results"):
-        raise Exception(response["results"][0].get("error", "Relationship type not found"))
+    # Response is an array of matching relationship types
+    if isinstance(response, list) and len(response) > 0:
+        return response[0]
+    elif isinstance(response, list):
+        raise Exception("Relationship type not found")
     return response
 
 
@@ -229,7 +229,7 @@ async def get_relationships(
     :param base_url: base URL of API method being called
     :param element_id: element id
     :param relationship_type: relationship type
-    :return: relationships dict"""
+    :return: relationships array"""
     if base_url is None:
         raise TypeError("base_url cannot be None")
     if element_id is None:
@@ -238,22 +238,18 @@ async def get_relationships(
         raise ValueError("relationship_type is required to run get_relationships")
     url = f"{base_url}/objects/related"
     payload = {
-        "elementId": element_id,
-        "relationshiptype": relationship_type
+        "elementIds": [element_id],
+        "relationshipType": relationship_type
     }
     response = await post(url, payload)
-    # Extract first result from new response format
-    if response.get("results") and response["results"][0].get("success"):
-        return response["results"][0]["data"]
-    elif response.get("results"):
-        raise Exception(response["results"][0].get("error", "Element not found"))
+    # Response is an array of related objects
     return response
 
 
 async def get_object(
     base_url: str = None, element_id: str = None, include_metadata: bool = False
 ):
-    """get_object calls List Objects by ElementId (RFC 4.1.5)
+    """get_object calls List Objects by ElementId (RFC 4.1.8)
     :param base_url: base URL of API method being called
     :param element_id: element id
     :param include_metadata: boolean, if true get object metadata, default false
@@ -264,15 +260,14 @@ async def get_object(
         raise ValueError("element_id is required to run get_object")
     url = f"{base_url}/objects/list"
     payload = {
-        "elementId": element_id,
-        "includeMetadata": include_metadata
+        "elementIds": [element_id]
     }
     response = await post(url, payload)
-    # Extract first result from new response format
-    if response.get("results") and response["results"][0].get("success"):
-        return response["results"][0]["data"]
-    elif response.get("results"):
-        raise Exception(response["results"][0].get("error", "Object not found"))
+    # Response is an array of matching objects
+    if isinstance(response, list) and len(response) > 0:
+        return response[0]
+    elif isinstance(response, list):
+        raise Exception("Object not found")
     return response
 
 
@@ -286,22 +281,18 @@ async def get_value(
     :param base_url: base URL of API method being called
     :param include_metadata: boolean, if true get object metadata, default false
     :param element_id: element id
-    :return: value dict"""
+    :return: value dict keyed by elementId with nested {data: [VQT], ...children}"""
     if base_url is None:
         raise TypeError("base_url cannot be None")
     if element_id is None:
         raise ValueError("element_id is required to run get_value")
     url = f"{base_url}/objects/value"
     payload = {
-        "elementId": element_id,
+        "elementIds": [element_id],
         "maxDepth": 1
     }
     response = await post(url, payload)
-    # Extract first result from new response format
-    if response.get("results") and response["results"][0].get("success"):
-        return response["results"][0]["data"]
-    elif response.get("results"):
-        raise Exception(response["results"][0].get("error", "Element not found"))
+    # Response is dict keyed by elementId: {elementId: {data: [VQT], ...children}}
     return response
 
 
@@ -317,14 +308,15 @@ async def get_history(
     :param element_id: element id
     :param include_metadata: boolean, if true get history metadata, default false
     :param start_time: start time, optional
-    :param end_time: end time, optional"""
+    :param end_time: end time, optional
+    :return: value dict keyed by elementId with nested {data: [VQT...], ...children}"""
     if base_url is None:
         raise TypeError("base_url cannot be None")
     if element_id is None:
         raise ValueError("element_id is required to run get_history")
     url = f"{base_url}/objects/history"
     payload = {
-        "elementId": element_id,
+        "elementIds": [element_id],
         "maxDepth": 1
     }
     if start_time is not None:
@@ -332,11 +324,7 @@ async def get_history(
     if end_time is not None:
         payload["endTime"] = end_time
     response = await post(url, payload)
-    # Extract first result from new response format
-    if response.get("results") and response["results"][0].get("success"):
-        return response["results"][0]["data"]
-    elif response.get("results"):
-        raise Exception(response["results"][0].get("error", "Element not found"))
+    # Response is dict keyed by elementId: {elementId: {data: [VQT...], ...children}}
     return response
 
 
@@ -888,7 +876,7 @@ async def main():
                     elif user_selection == "7":
                         subscription_id = input("Enter Subscription ID: ").strip()
                         try:
-                            pretty_print_json(await stream(base_url, subscription_id))
+                            stream(base_url, subscription_id)
                         except Exception as e:
                             if str(e).startswith(
                                 "Client error '404 Not Found' for url"
