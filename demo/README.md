@@ -1,6 +1,6 @@
 # Understanding the Demo Model
 
-The [mock data Demo Model](server/data_sources/mock) illustrates the complexity of relationships that i3X supports -- both the required and optional. Its critical to understand the differences between each, and the implications of supporting them:
+The [mock data Demo Model](server/data_sources/mock) illustrates the complexity of the required and optional relationships that i3X supports. Its critical to understand the differences between each, and the implications of supporting them:
 
 - Hierarchical Relationships: one object *organizes* one or more other objects
 - Composition Relationships: one object is *made up of* one or more other objects
@@ -10,7 +10,7 @@ i3X Implementations must support Hierarchical and Composition Relationships. Gra
 
 ## Relationship Types in Brief
 
-### Hierarchical Relationships
+### Hierarchical Relationships (Required)
 
 This relationship type is commonly used in an ISA-95 asset hierarchy. UNS implementations using MQTT also often naturally fall into this pattern due to the hierarchical nature of the topic structure.
 
@@ -18,7 +18,7 @@ Hierarchical relationships are used to illustrate how an object is related to ot
 
 In a manufacturing operation, a "Plant" object may have many "Lines". What's key is that a hierarchical relationship is between two independent objects.
 
-### Composition Relationships
+### Composition Relationships (Recommended)
 
 This relationship type is when an object typically requires another object as part of its definition. A machine that cannot function without an internal component would usually be a composition. However, an information model may still need to identify the internal component, so its data is still defined as a separate, sub-object of the parent machine.
 
@@ -26,7 +26,7 @@ Composition may also be known as encapsulation. Encapsulation is an important Ob
 
 When modeling information, its important to be able to express an composition relationship between two objects to indicate how objects are encapsulated.
 
-### Graph Relationships
+### Graph Relationships (Optional)
 
 This relationship type encompasses any relationship not expressed by the other two relationship types. Graph relationships in i3X are bi-directional "edges" between "node" objects. Each graph relationship has an inverse: a pump has a "suppliesTo" relationship with a tank, therefore conversely, a tank has a "suppliedBy" relationship with a pump.
 
