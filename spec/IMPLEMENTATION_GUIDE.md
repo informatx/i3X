@@ -1,65 +1,125 @@
-# I3X Implementation Guide
+# i3X Implementation Guide
 
-This document provides comprehensive guidance for implementing RFC 001-compliant I3X (Industrial Information Interface eXchange) servers. It supplements the OpenAPI specification (`openapi.yaml`) with behavioral requirements, edge cases, and architecture recommendations.
+This document provides guidance for implementing i3X (Industrial Information Interface eXchange), and is intended to be used by developers creating i3X servers and clients.
+
+The guide supplements the OpenAPI specification (`openapi.yaml`), which defines the API in detail.
+
+## Status of This Document
+
+This document is a working draft, and should not be considered complete or normative. This guide is derived from RFC 001 "Common API for Industrial Information Interface eXchange (i3X)". All contents are subject to change.
+
+> **Work in Progress Notes**
+> -Define a versioning scheme to introduce changes over time
+> - Define a version endpoint clients can use to discover server version and capabilities
+> - Define optional pagination on the GET/LIST routes that could return a lot of data
+> - Add acknowledgement as part of subscription /sync
+> - Define a subscription keep alive on the creation to allow servers to recover from clients that stop asking for data
+> - Define error returns/handling on all the API endpoints
+> - Review and make consistent JSON input/output for all endpoints
+> - Consider adding partial update/write support to PUT object/{id}/value
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)
-2. [Core Concepts](#2-core-concepts)
-3. [Data Model Requirements](#3-data-model-requirements)
-4. [API Implementation](#4-api-implementation)
-5. [Subscription System](#5-subscription-system)
-6. [Architecture Recommendations](#6-architecture-recommendations)
-7. [Security](#7-security)
-8. [Compliance Testing](#8-compliance-testing)
+- [Introduction](#introduction)
+- [Compliance](#compliance)
+- [Transport & Encoding](#transport--encoding)
+  - [Security & Authentication](#security--authentication)
+  - [Versioning](#versioning)
+- [Address Space](#address-space)
+  - [ElementId and DisplayName](#elementid-and-displayname)
+  - [Namespaces](#namespaces)
+  - [Object Types](#object-types)
+  - [Relationship Types](#relationship-types)
+  - [Objects](#objects)
+- [Exploratory Methods](#exploratory-methods)
+  - [Namespace Endpoints](#namespace-endpoints)
+  - [Object Type Endpoints](#object-type-endpoints)
+  - [Relationship Type Endpoints](#relationship-type-endpoints)
+  - [Object Endpoints](#object-endpoints)
+- [Query Methods](#query-methods)
+- [Update Methods](#update-methods)
+- [Subscribe Methods](#subscribe-methods)
+  - [Subscriptions](#subscriptions)
+  - [Registering and Unregistering Objects](#registering-and-unregistering-objects)
+  - [Streaming](#streaming)
+  - [Sync](#sync)
+- [Appendix](#appendix-for-now)
+  - [Relationship Semantics](#relationship-semantics)
+  - [maxDepth Parameter Semantics](#maxdepth-parameter-semantics)
+  - [Error Handling](#error-handling)
+  - [Pagination](#pagination)
 
----
+## Introduction
+i3X is an HTTP-based API for interacting with industrial systems. It defines a standard interface between clients and servers for discovery, browsing, reading, writing, and subscribing to industrial data.
 
-## 1. Introduction
+i3X exposes industrial systems through schema-aware information models. Data is represented as typed objects with attributes, metadata, and relationships, allowing clients to interact with both values and structure in a consistent way.
 
-### 1.1 Purpose and Scope
-
-This guide enables developers to build RFC 001-compliant I3X servers in any programming language. It covers:
-
-- **Normative requirements**: Behaviors that MUST be implemented for compliance
-- **Optional features**: Behaviors that MAY be implemented to enhance functionality
-- **Architecture recommendations**: Suggested patterns for robust implementations
-
-### 1.2 Relationship to RFC 001
-
-This guide is derived from RFC 001 "Common API for Industrial Information Interface eXchange (I3X)". Where this guide and the RFC differ, the RFC takes precedence. This guide provides additional implementation detail not specified in the RFC.
-
-### 1.3 Compliance Levels
-
+## Compliance
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" are interpreted as described in Internet RFC 2119.
 
-**Compliance Levels:**
+i3X consists of the following high level capabilities.
 
-| Level | Description |
-|-------|-------------|
-| **Core** | All exploratory methods (RFC 4.1.x) and current value queries (RFC 4.2.1.1) |
-| **Extended** | Core + historical values (RFC 4.2.1.2) and subscriptions (RFC 4.2.3.x) |
-| **Full** | Extended + value updates (RFC 4.2.2.x) |
+- **Exploratory** browse and discover the address space
+- **Query** read the current or historical values of Objects
+- **Update** write current or historical data to Objects
+- **Subscribe** subscribe to data changes for Objects
 
-Implementations MUST support Core level. Extended and Full levels are RECOMMENDED for production deployments.
+**Requirements**
+* MUST support `Exploratory` and `Query` methods for current value
+* SHOULD support `Subscribe` methods
+* MAY support `Update` methods and historical `Query` and `Update` methods
 
----
+## Transport & Encoding
 
-## 2. Core Concepts
+i3X is RESTful HTTP-based API and relies on HTTP for transport. It includes typical request/response patterns as well as SSE (Server Sent Events) for Subscribe capabilities.
 
-### 2.1 ElementId Format and Uniqueness
+In addition to an HTTP based transport, i3X uses JSON encoding to exchange data between the client and the server.
 
-**Definition:** An ElementId is a platform-specific, persistent, unique string identifier for any element in the address space.
+- All i3X requests MUST include `Content-Type: application/json` and `Accept: application/json` in the HTTP header.
+
+### Security & Authentication
+
+i3X relies on HTTP security best practices to secure communication between the client and server. This includes the use of HTTPs and Basic Auth.
+
+- Implementations MUST support encrypted transport (HTTPS) in production
+- TLS 1.2 or higher SHOULD be used
+- Self-signed certificates MAY be used for development
+- All i3X client requests must include the `Authorization: Bearer <token>` in the request header.
+- Servers SHOULD limit client access based on the token
+
+### Versioning
+
+[TODO] define an endpoint clients can use to discover version and capabilities
+[TODO] define a versioning approach used if/when we need evolve features
+
+## Address Space
+The i3X server address space consists of the following elements.
+
+- **Namespaces**
+  - A logical way to group elements in an i3X server. Object Types, Objects, and Relationship Types all belong to a namespace.
+- **Object Types** 
+  - Schema definitions that describe the shape of an Object's value. For example a Boiler might have a schema with temperature and pressure attributes.
+- **Objects** 
+  - Instantiations or instances of an Object Type. Objects can be read, written and subscribed to. For example, a server might have Boiler1 and Boiler2 Objects that represent two boilers at a facility, and both are backed by a Boiler Object Type. When the Boiler1 value is read, it returns data that conforms to the Boiler Object Type schema.
+- **Relationship Types** 
+  - Objects can be related to one another via Relationship Types. The simplest example is parent and child relationship, but graph and other relationship types are supported.
+
+### ElementId and DisplayName
+All elements in the namespace must have an ElementId and DisplayName.
+
+An ElementId is a platform-specific unique string identifier. Each element in the address space must have a unique elementId. The following are requirements for ElementIds.
 
 **Requirements:**
-
-- ElementIds MUST be strings
+- ElementIds MUST be strings with the following constraints
+  - [TODO] - put some limits around ElementIds?
+  - MUST be case insensitive
+  - MUST not contain leading or trailing white spaces
 - ElementIds MUST be unique within the scope of the platform
-- ElementIds MUST be persistent (the same element always has the same ID)
-- ElementIds MUST be URL-safe or properly encoded when used in paths
+- ElementIds SHOULD be persistent (the same element always has the same ID)
+  - [TODO] SHOULD or MUST be persistent?
 - ElementIds SHOULD be human-readable when practical
 
-**Examples of valid ElementIds:**
+Below are examples of ElementIds.
 ```
 machine-001
 sensor_temperature_01
@@ -68,32 +128,35 @@ MachineType
 HasParent
 ```
 
-**URL Encoding:**
+The DisplayName the human readable name often used when displaying the Namespace, Object, etc to a user. For example a Boiler Object might have the following definition, where the elementId makes it unique in the server, and the displayName makes it easy to display to a user.
 
-When an ElementId contains characters not allowed in URLs (e.g., `/`, `#`, `?`), it MUST be percent-encoded:
-
+```json
+{
+  "elementId": "site-area-line-boiler1",
+  "displayName": "Boiler1",
+  "namespaceUri": "https://example.com/ns/sensors"
+}
 ```
-Original:    equipment/pump#123
-Encoded:     equipment%2Fpump%23123
+
+### Namespaces
+
+A Namespace provides a logical grouping of elements within the i3X address space. The following is an example of a Namespace definition.
+
+[TODO] - should a namespace also have an elementId to make it consistent with everything else? What if we add a GET /namesapce/{id} route?
+
+```json
+  {
+    "uri": "https://cesmii.org/i3x",
+    "displayName": "I3X"
+  }
 ```
 
-Servers MUST decode percent-encoded ElementIds in path parameters.
-
-### 2.2 Namespace Semantics
-
-**Definition:** A Namespace provides a logical scope within the address space that groups related types, instances, and relationships.
-
-**Requirements:**
-
+**Requirements**
+- A server MUST have at least one Namespace
 - Each Namespace MUST have a unique URI
-- Each Namespace MUST have a displayName
-- All Object Types MUST belong to exactly one Namespace
-- All Object Instances MUST belong to exactly one Namespace
-- Relationship Types SHOULD belong to a Namespace
+- Objects, Object Types, and Relationship Types MUST belong to one and only one Namespace
 
-**Standard Namespace URIs:**
-
-Implementations MAY define their own namespace URIs. Recommended patterns:
+Below are example URI patterns:
 
 ```
 https://www.company.com/ns/equipment
@@ -101,22 +164,13 @@ https://www.isa.org/isa95
 urn:i3x:relationships
 ```
 
-### 2.3 Object Type vs Instance Relationship
+### Object Types
 
-**Object Types** define the schema (structure, attributes) for a class of objects. They are analogous to classes in object-oriented programming.
+Object Types define the schema (structure, attributes) for a class of Objects. They are analogous to classes in object-oriented programming. When an Object is read, the value returned conforms to the schema defined by the Object Type.
 
-**Object Instances** are actual equipment, sensors, or processes with current attribute values. They are derived from Object Types.
-
-**Requirements:**
-
-- Every Object Instance MUST reference its Object Type via `typeId`
-- The `typeId` MUST correspond to an existing Object Type's `elementId`
-- Object Instances MUST conform to their Object Type's schema
-
-**Example:**
+Below is an example of an Object Type in an i3X server. Note the `schema` attribute contains the JSON Schema definition of the object. For more information on JSON Schema see https://json-schema.org/. i3X used JSON Schema to define Object Types.
 
 ```json
-// Object Type
 {
   "elementId": "TemperatureSensorType",
   "displayName": "Temperature Sensor",
@@ -129,21 +183,475 @@ urn:i3x:relationships
     }
   }
 }
+```
 
-// Object Instance (derived from above type)
+**Requirements**
+- An Object Type MUST have a JSON Schema definition
+- An Object Type MUST belong to one Namespace
+
+### Relationship Types
+
+Relationship Types define the relationships between Objects. The most common relationship type is often parent/child, but relationship types can can include composition, inheritance, graph, etc.
+
+Below is an example of two Relationship Type definitions.
+
+```json
+[
+ {
+    "elementId": "HasParent",
+    "displayName": "HasParent",
+    "namespaceUri": "https://cesmii.org/i3x",
+    "reverseOf": "HasChildren"
+  },
+  {
+    "elementId": "HasChildren",
+    "displayName": "HasChildren",
+    "namespaceUri": "https://cesmii.org/i3x",
+    "reverseOf": "HasParent"
+  },
+  {
+    "elementId": "HasComponent",
+    "displayName": "HasComponent",
+    "namespaceUri": "https://cesmii.org/i3x",
+    "reverseOf": "ComponentOf"
+  },
+  {
+    "elementId": "ComponentOf",
+    "displayName": "ComponentOf",
+    "namespaceUri": "https://cesmii.org/i3x",
+    "reverseOf": "HasComponent"
+  }
+]
+```
+
+[TODO] is reverseOf required? What if there is no reverse?
+
+### Objects
+
+Objects are actual equipment, sensors, or processes with values. Their values are defined by Object Types and they can be related via Relationship Types. For example, we may have the following Objects in the server.
+
+```
+Production Line A (Line) [parent]
+├── Machine 1 (CNCType) [child]
+├── Machine 2 (PressType) [child]
+└── Machine 3 (PackagingType) [child]
+```
+Here `Production Line A` is the parent object of type `Line`, and the machines are child objects of different types.
+
+The definition of an Object looks as follows.
+
+```json
+ {
+    "elementId": "string",
+    "displayName": "string",
+    "typeId": "string",
+    "parentId": "string",
+    "isComposition": false,
+    "namespaceUri": "string"
+  }
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `elementId` | string | Unique identifier |
+| `displayName` | string | Human-friendly name |
+| `typeId` | string | ElementId of the Object Type |
+| `parentId` | string? | ElementId of parent (null if root) |
+| `isComposition` | boolean | True if the element encapsulates its children |
+| `namespaceUri` | string | Namespace URI |
+
+[TODO] - i'm still not clear on isComposition, may need an example
+
+When an Object is read via the `/objects/value` API it returns the value of the Object that conforms to the schema defined by the Object Type.
+
+**Requirements:**
+
+- An Object SHOULD have a `typeId`
+- When the `typeId` is set, the Object's value MUST conform to the Object Type schema.
+- Objects MAY not have a backing Object Type. In this case the `typeId` is left as an empty string ""
+
+## Exploratory Methods
+
+i3X Servers exposes exploratory methods to browse the i3X address space. This includes the ability to browse Namespaces, Types, Objects, and Object relationships. This section covers the API calls included in Exploratory methods.
+
+### Namespace Endpoints
+
+#### `GET` /namespaces
+
+Returns all the Namespaces for the server.
+
+**Parameters:** None
+
+**Response:**
+
+```json
+[
+  {
+    "uri": "string",
+    "displayName": "string"
+  }
+]
+```
+
+---
+
+### Object Type Endpoints
+
+#### `GET` /objecttypes
+
+Returns a list of all Object Types, optionally filtered by Namespace.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `namespaceUri` | string | No | When set, returns Object Types that belong to the Namespace. If not set, all Object Types are returned. |
+
+**Response:**
+
+Note the JSON Schema definition for the Object Type is placed under the `schema` attribute.
+
+```json
+[
+  {
+    "elementId": "string",
+    "displayName": "string",
+    "namespaceUri": "string",
+    "schema": {...}
+  }
+]
+```
+
+---
+
+#### `POST` /objecttypes/query
+
+Returns one or more Object Types given a collection of elementIds.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementIds` | string[] | Yes | One or more elementIds to query |
+
+```json
 {
-  "elementId": "temp-sensor-001",
-  "displayName": "Reactor Temperature Sensor",
-  "typeId": "TemperatureSensorType",
-  "namespaceUri": "https://example.com/ns/sensors",
-  "parentId": "reactor-001",
-  "isComposition": false
+  "elementIds": [
+    "string"
+  ]
 }
 ```
 
-### 2.4 VQT (Value-Quality-Timestamp) Format
+**Response:**
 
-All value responses MUST include the VQT structure:
+[TODO] is this the response format we want? So we want to support partial success here?
+MGP: Status for each element discussed here: https://github.com/cesmii/i3X/issues/26 Also, can totalSuccess be removed, since primary interest is totalFailed and Success can be derived from totalRequested-totalFailed
+
+```json
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   {
+        "elementId": "string",
+        "displayName": "string",
+        "namespaceUri": "string",
+        "schema": {}
+      }
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+```
+
+---
+
+### Relationship Type Endpoints
+
+#### `GET` /relationshiptypes
+
+Returns a list of all Relationship Types, optionally filtered by Namespace.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `namespaceUri` | string | No | When set, returns types that belong to the Namespace. If not set, all types are returned. |
+
+**Response:**
+
+```json
+[
+  {
+    "elementId": "string",
+    "displayName": "string",
+    "namespaceUri": "string",
+    "reverseOf": "string"
+  }
+]
+```
+
+---
+
+#### `POST` /relationshiptype/query
+
+Returns one or more Relationship Types given a collection of elementIds.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementIds` | string[] | Yes | One or more elementIds to query |
+
+```json
+{
+  "elementIds": [
+    "string"
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   {
+        "elementId": "string",
+        "displayName": "string",
+        "namespaceUri": "string",
+        "reverseOf": "string"
+      }
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+```
+
+---
+
+### Object Endpoints
+
+#### `GET` /objects
+
+Returns a list of all Objects, optionally filtered by `typeId`. This allows a client to ask for all Objects of a given type.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `typeId` | string | No | When set, returns Objects of the given typeId. If not set, all Objects are returned. |
+| `includeMetadata` | boolean | No | Optionally include metadata in the response. |
+
+**Response:**
+
+```json
+// No metadata
+[
+  {
+    "elementId": "string",
+    "displayName": "string",
+    "typeId": "string",
+    "parentId": "",
+    "isComposition": false,
+    "namespaceUri": "string"
+  }
+]
+
+// With metadata
+[
+  {
+    "elementId": "string",
+    "displayName": "string",
+    "typeId": "string",
+    "parentId": "",
+    "isComposition": false,
+    "namespaceUri": "string",
+    "relationships": {
+      "HasParent": "/",
+      "HasChildren": [
+        "child1",
+        "child2"
+      ]
+    }
+  }
+]
+```
+
+[TODO] - Why do we have both parentId and relationships metadata? Doesn't this overlap with /objects/related?
+  MGP: /objects/related returns the actual objects that are related.  The relationships identifies what is related without returning the related objects.
+[TODO] - should we package metadata under 'required'/spec section and a place for custom server metadata?
+  MGP: The demo puts custom server metadata along side the object metadata, such as "operationStartDate" in the pump-101 element.
+
+---
+
+#### `POST` /objects/list
+
+Returns one or more Objects without data/values given a collection of elementIds.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementIds` | string[] | Yes | One or more elementIds to query |
+| `includeMetadata` | boolean | No | Optionally include metadata in the response. |
+
+```json
+{
+  "elementIds": [
+    "string"
+  ],
+  "includeMetadata": false
+}
+```
+
+**Response:**
+
+```json
+/// No metadata
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   {
+        "elementId": "string",
+        "displayName": "string",
+        "typeId": "string",
+        "parentId": "",
+        "isComposition": false,
+        "namespaceUri": "string"
+      }
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+
+// With metadata
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   {
+        "elementId": "string",
+        "displayName": "string",
+        "typeId": "string",
+        "parentId": "",
+        "isComposition": false,
+        "namespaceUri": "string"
+        "relationships": {
+          "HasParent": "/",
+          "HasChildren": [
+            "child1",
+            "child2"
+          ]
+        }
+      }
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+```
+
+---
+
+#### `POST` /objects/related
+
+Returns related Objects, with the option to filter on a Relationship Type.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementIds` | string[] | Yes | List of elementIds to browse for relationships |
+| `relationshiptype` | string | No | The elementId of the Relationship Type to filter on. Leave out or set to null to get all related Objects. |
+| `includeMetadata` | boolean | No | [TODO] need to define/describe what this flag does in the response?  MGP - it should respond similar to /objects/list.  Added to response |
+
+```json
+{
+  "elementIds": [
+    "string"
+  ],
+  "relationshiptype": "string",
+  "includeMetadata": false
+}
+```
+
+**Response:**
+
+Returns an array of related Object definitions for each related Object.
+
+```json
+/// No metadata
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   [{
+        "elementId": "string",
+        "displayName": "string",
+        "typeId": "string",
+        "parentId": "",
+        "isComposition": false,
+        "namespaceUri": "string"
+      }]
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+
+/// With Metadata
+{
+  "results": [
+    {
+      "elementId": "string",
+      "success": true,
+      "data":   [{
+        "elementId": "string",
+        "displayName": "string",
+        "typeId": "string",
+        "parentId": "",
+        "isComposition": false,
+        "namespaceUri": "string"
+        "relationships": {
+          "HasParent": "/",
+          "HasChildren": [
+            "child1",
+            "child2"
+          ]
+        }
+      }]
+    }
+  ],
+  "totalRequested": 1,
+  "totalSuccess": 1,
+  "totalFailed": 0
+}
+```
+
+---
+
+## Query Methods
+
+Query methods are used to read the current and historical value for an Object.
+
+Values in i3X have the following definition.
 
 ```json
 {
@@ -159,9 +667,8 @@ All value responses MUST include the VQT structure:
 |-------|------|----------|-------------|
 | `value` | any | Yes | The actual data value (any JSON type) |
 | `quality` | string | Yes | Data quality indicator |
-| `timestamp` | string | Yes | RFC 3339 timestamp when data was recorded |
+| `timestamp` | string | Yes | RFC 3339 timestamp when data was recorded. Times must be UTC with no timezone offset. |
 
-### 2.5 Quality Values
 
 | Quality | Description | When to Use |
 |---------|-------------|-------------|
@@ -170,46 +677,513 @@ All value responses MUST include the VQT structure:
 | `Bad` | Value is invalid or connection failed | Communication failure, sensor malfunction |
 | `Uncertain` | Value quality cannot be determined | Sensor in calibration, stale data |
 
-**Quality Determination Rules:**
+Below is an example of a temperature sensor value return, along with the Object and Object Type Definition for context.
 
-1. If the value was received within the expected update interval: `Good`
-2. If the element exists but has no recorded values: `GoodNoData`
-3. If the data source reports an error or timeout: `Bad`
-4. If the value age exceeds a threshold but connection is alive: `Uncertain`
+```json
+// Object Value read for tempSensor1
+{
+  "value": {
+    "temperature": 20,
+    "unit": "C"
+  },
+  "quality": "Good",
+  "timestamp": "2025-01-08T10:30:00Z"
+}
+
+// Object definition for tempSensor1
+{
+  "elementId": "tempSensor1",
+  "displayName": "Temperature Sensor 1",
+  "typeId": "TemperatureSensorType",
+  "parentId": "",
+  "isComposition": false,
+  "namespaceUri": "https://example.com/ns/sensors"
+}
+
+// Object Type definition
+{
+  "elementId": "TemperatureSensorType",
+  "displayName": "Temperature Sensor",
+  "namespaceUri": "https://example.com/ns/sensors",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "temperature": { "type": "number" },
+      "unit": { "type": "string", "enum": ["C", "F", "K"] }
+    }
+  }
+}
+```
+
+#### `POST` /objects/value
+
+Returns the last known value for one or more Objects.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementIds` | string[] | Yes | One or more elementIds to query |
+| `maxDepth` | integer | No | [TODO] - need to define this with clear examples. Can you filter this on a relationship type or does it traverse all relationships? MGP: I believe it only traverses hasComponent relationships.  vNext could add a relationship type parameter to deviate from default of hasComponent |
+
+```json
+{
+  "elementIds": [
+    "string"
+  ],
+  "maxDepth": 1
+}
+```
+
+**Response:**
+
+[TODO] we need to review this payload structure, elementId is duplicated.  MGP- sync up reponse with v0.1.2
+
+```json
+{
+    "results": [
+        {
+            "elementId": "string",
+            "success": true,
+            "data": {
+                "elementId": "string",
+                "isComposition": false,
+                "value": {
+                    "temperature": 1,
+                    "inletPressure": "2",
+                    "outletPressure": 0.11139064
+                },
+                "quality": "GOOD",
+                "timestamp": "2026-01-29T16:37:41Z"
+            }
+        }
+    ],
+    "totalRequested": 1,
+    "totalSuccess": 1,
+    "totalFailed": 0,
+}
+```
 
 ---
 
-## 3. Data Model Requirements
+#### `POST` /objects/history
 
-### 3.1 Required Object Metadata Fields
+Returns the historical values for one or more Objects between a start and end time.
 
-Every Object Instance response MUST include these fields (RFC 3.1.1):
+[TODO] - Sync reponse with v0.1.2
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `elementId` | string | Unique identifier |
-| `displayName` | string | Human-friendly name |
-| `typeId` | string | ElementId of the Object Type |
-| `parentId` | string? | ElementId of parent (null if root) |
-| `isComposition` | boolean | True if the element encapsulates its children |
-| `namespaceUri` | string | Namespace URI |
+**Request Body:**
 
-### 3.2 Optional Object Metadata Fields
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementId` | string | No | Single elementId to query |
+| `elementIds` | string[] | No | One or more elementIds to query |
+| `startTime` | string | Yes | RFC 3339 timestamp for range start |
+| `endTime` | string | Yes | RFC 3339 timestamp for range end |
+| `maxDepth` | integer | No | Controls recursion depth |
 
-When `includeMetadata=true`, implementations MAY include (RFC 3.1.2):
+```json
+{
+  "elementId": "string",
+  "elementIds": [
+    "string"
+  ],
+  "startTime": "string",
+  "endTime": "string",
+  "maxDepth": 1
+}
+```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `interpolation` | string | Interpolation method if value is interpolated |
-| `engUnit` | string | Engineering unit (UNECE Rec 20 format) |
-| `quality` | string | Current data quality |
-| `relationships` | object | Relationship map |
+**Response:**
 
-### 3.3 Relationship Type Semantics
+```json
+{
+    "results": [
+        {
+            "elementId": "string",
+            "success": true,
+            "data": [
+                {
+                "elementId": "string",
+                "isComposition": false,
+                "value": {
+                    "temperature": 1,
+                    "inletPressure": "2",
+                    "outletPressure": 0.11139064
+                },
+                "quality": "GOOD",
+                "timestamp": "2026-01-29T16:37:41Z"
+              }
+            ]
+        }
+    ],
+    "totalRequested": 1,
+    "totalSuccess": 1,
+    "totalFailed": 0,
+}
+```
 
-#### 3.3.1 Organizational Relationships (Required)
+---
 
-**HasParent / HasChildren**
+## Update Methods
+
+Update methods allow clients to write current and historical values to an Object. Update methods have the following limitations.
+
+- Clients MUST write the full value to the Object. Partial updates are currently not supported
+
+---
+
+#### `PUT` /objects/{elementId}/value
+
+Update the value of an Object.
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `elementId` | string | Yes | The elementId of the Object to update |
+
+**Request Body:**
+
+The JSON value to write to the Object. The value will replace the current Object value in its entirety. Partial writes of attributes are not currently supported.
+
+**Response:**
+
+```json
+{
+  "elementId": "string",
+  "success": true,
+  "message": "Updated successfully"
+}
+```
+
+---
+
+#### `PUT` /objects/{elementId}/history
+
+Update historical values of an Object.
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `elementId` | string | Yes | The elementId of the Object to update |
+
+**Request Body:**
+
+```json
+// TODO document this
+```
+
+**Response:**
+
+```json
+// TODO document this
+```
+
+---
+
+## Subscribe Methods
+
+Subscriptions allow clients to receive value changes in real-time for objects they are interested in. Subscriptions support two delivery modes:
+
+| Mode | Description |
+|------|-------------|
+| **streaming** | Value changes are sent as fast as possible using SSE (Server Sent Events). |
+| **sync** | Value changes are queued and delivered when the client calls the sync API. |
+
+Streaming provides data as fast as possible, where Sync allows the client to control when data is delivered. The following sections describe common methods to setup and configure a subscription, followed by more details on the stream and sync modes.
+
+### Subscriptions
+
+Clients must first create a subscription in the server. Subscriptions have the following requirements:
+
+- The server MUST provide a unique subscriptionId to the client
+- [TODO] it would probably be useful for the client to be able to provide a name or some client id for the subscription to be returned in GET?
+- Servers SHOULD NOT share subscriptions across clients  [TODO] MGP - how will an i3X server know this?  Plus, I propose the technology/API should allow sharing subscriptions between clients, if the desire is to have a setup similar to multicast (any client can subscribe to this ID for all the data it needs to know)
+
+---
+
+#### `POST` /subscriptions
+
+Create a subscription.
+
+**Parameters:** None
+
+**Response:**
+
+```json
+{
+  "subscriptionId": "0",
+  "message": "Subscription created successfully."
+}
+```
+
+---
+
+#### `GET` /subscriptions
+
+List all subscriptions that the client has created.
+[TODO] - how does a server know which subscriptions a client created, especially after a disconnect/connect event? Should we specify clientID as a parameter for `POST` /subscriptions and `GET` /subscriptions?
+
+**Parameters:** None
+
+**Response:**
+
+```json
+{
+  "subscriptionIds": [
+    {
+      "subscriptionId": "0",
+      "created": "2026-01-29T19:56:06Z"
+    }
+  ]
+}
+```
+
+---
+
+#### `GET` /subscriptions/{subscriptionId}
+
+Return the details of a subscription, including the registered objects.
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `subscriptionId` | string | Yes | The subscriptionId for the Subscription to get |
+
+**Response:**
+
+[TODO] - created, isStreaming, queuedUpdates were added but never discussed. Do we need these?
+
+```json
+{
+  "subscriptionId": 0,
+  "created": "2026-01-29T19:56:06Z",
+  "isStreaming": false,
+  "queuedUpdates": 20,
+  "objects": [
+    "object-elementid-1",
+    "object-elementid-2"
+  ]
+}
+```
+
+---
+
+#### `DELETE` /subscriptions/{subscriptionId}
+
+Delete a Subscription.
+
+- Servers SHOULD stop collecting data for Objects being monitored by the Subscription when it's deleted.
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `subscriptionId` | string | Yes | The subscriptionId for the Subscription to delete |
+
+**Response:**
+
+[TODO] is this the response format we want? You can only delete one at a time
+
+```json
+{
+  "message": "Unsubscribe processed.",
+  "unsubscribed": [
+    0
+  ],
+  "not_found": []
+}
+```
+
+---
+
+### Registering and Unregistering Objects
+
+Once a Subscription is created, a client can add and remove Objects to the Subscription to start collecting data changes.
+
+- Once an Object is registered the server MUST start collecting data changes for the Object
+- Servers SHOULD queue the updates and deliver them FIFO to clients
+- Servers SHOULD have a limit on how many updates they can queue, and when reached, start dropping older updates first
+
+[TODO] - how does a server signal a client that this is or has happened?  MGP- "this happened" referring to dropped data?  Maybe through some additional data in the `GET` /subscription.  Add some timestamp for when data was last dropped?  Maybe something more creative, also?
+
+---
+
+#### `POST` /subscriptions/{subscriptionId}/register
+
+Register one or more Objects with a Subscription.
+
+- If an Object is registered more than once this MUST be ignored by the Server
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `subscriptionId` | string | Yes | The subscriptionId for the Subscription to register items with |
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementIds` | string[] | Yes | One or more elementIds to register |
+| `maxDepth` | integer | No | Controls recursion depth | [TODO] - MGP explain how maxDepth works.  Similar to values, where it only follows hasComponent relationships?
+
+```json
+{
+  "elementIds": [
+    "elementId1"
+  ],
+  "maxDepth": 1
+}
+```
+
+**Response:**
+
+[TODO] - is this the response we want?
+
+```json
+{
+  "message": "Registered 1 objects to subscription.",
+  "totalObjects": 1
+}
+```
+
+---
+
+#### `POST` /subscriptions/{subscriptionId}/unregister
+
+Unregister one or more Objects from a Subscription.
+
+- If an Object is not registered with the subscription the server MUST ignore it
+- Once an Object is unregistered the server SHOULD stop queuing new values for the Object on the Subscription
+- The server SHOULD NOT delete any prior queued values for the Object
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `subscriptionId` | string | Yes | The subscriptionId for the Subscription to unregister items from |
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `elementIds` | string[] | Yes | One or more elementIds to unregister |
+| `maxDepth` | integer | No | Controls recursion depth |
+
+```json
+{
+  "elementIds": [
+    "elementId1"
+  ],
+  "maxDepth": 1
+}
+```
+
+**Response:**
+
+[TODO] - is this the response we want?
+
+```json
+{
+  "message": "Unregistered 1 objects from subscription."
+}
+```
+
+---
+
+### Streaming
+
+Streaming sends values on the subscription to the client as they occur using SSE (Server Sent Events).
+
+**How it works:**
+
+1. Client creates subscription via `POST /subscriptions`
+2. Client registers items via `POST /subscriptions/{id}/register`
+   - The server starts queuing value changes for Objects
+3. Client opens SSE stream via `GET /subscriptions/{id}/stream`
+   - The server sends any values queued while the stream was closed
+4. Server sends values as they occur
+
+If the SSE connection is lost, the client can call the /stream endpoint again to re-open it.
+
+---
+
+#### `GET` /subscriptions/{subscriptionId}/stream
+
+Opens an SSE stream on the subscription to stream value changes from the server.
+
+- Server MUST only allow a single SSE stream per subscription
+  - [TODO] is this enough or should we spec what happens if you spam the /stream endpoint? Ignore? Close the old and open new?
+  - MGP - should multiple clients be allowed to connect in a multcast-type pattern?
+- The Server MUST send queued updates when the stream is open
+- Clients MAY not receive updates if there are no value changes
+  - [TODO] should register require queuing the current value of the Object?
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `subscriptionId` | string | Yes | The subscriptionId for the Subscription to stream |
+
+**Response:**
+
+The response includes value updates over SSE in the following format:
+
+```json
+[{"elementId": "sensor-001", "value": 72.5, "quality": "Good", "timestamp": "2025-01-08T10:30:00Z"}]
+```
+
+---
+
+### Sync
+
+Sync allows the client to control when value changes are received, and to acknowledge value changes.
+
+**How it works:**
+
+1. Client creates subscription via `POST /subscriptions`
+2. Client registers items via `POST /subscriptions/{id}/register`
+3. Server queues updates as they occur
+4. Client polls via `POST /subscriptions/{id}/sync`
+5. Server returns queued updates and clears the queue
+6. Continue this process
+
+[TODO] - need to add support for acknowledgement
+
+---
+
+#### `POST` /subscriptions/{subscriptionId}/sync
+
+Syncs the queue of Object value changes with the client.
+
+- Server MUST clear the values queue for the subscription after the client calls sync
+
+**Path Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `subscriptionId` | string | Yes | The subscriptionId for the Subscription to sync |
+
+**Response:**
+
+```json
+[{"elementId": "sensor-001", "value": 72.5, "quality": "Good", "timestamp": "2025-01-08T10:30:00Z"}]
+```
+
+---
+
+
+## Appendix (for now)
+
+[TODO] This is useful stuff that I can't figure out yet whereto put
+
+### Relationship Semantics
+
+#### HasParent / HasChildren
 
 These represent topological or organizational hierarchy where child objects are separate entities organized under a parent.
 
@@ -226,13 +1200,9 @@ Production Line A (parent)
 - `parentId` on instances MUST match the `HasParent` relationship
 - Traversing `HasChildren` returns distinct, independently-valued objects
 
-#### 3.3.2 Composition Relationships (Optional)
+#### HasComponent / ComponentOf (Composition)
 
-**HasComponent / ComponentOf**
-
-These indicate when child data IS *part of* the parent's definition -- that is, the child's members are encapsulated within the parent's.
-
-**Note:** isComposition MUST NOT be used to indicate ownership or hierarchy. It is strictly used to indicate how the data model is constructed. When isComposition is TRUE, the parent's value is composed of its children's values.
+These indicate when child data IS part of the parent's definition. The parent's value is composed of its children's values.
 
 ```
 CNC Machine (parent, isComposition: true)
@@ -248,7 +1218,7 @@ CNC Machine (parent, isComposition: true)
 - Querying parent value with `maxDepth > 1` returns nested child values
 - Component children's values are part of the parent's logical value
 
-### 3.4 maxDepth Parameter Semantics
+### maxDepth Parameter Semantics
 
 The `maxDepth` parameter controls recursion through HasComponent relationships:
 
@@ -295,25 +1265,7 @@ When `maxDepth > 1` and the element has components:
 
 ---
 
-## 4. API Implementation
-
-### 4.1 Request/Response Formats
-
-**JSON Required:**
-
-- Implementations MUST support JSON for all requests and responses
-- `Content-Type: application/json` SHOULD be the default
-- Implementations MAY support additional formats (e.g., binary) per RFC 5.1.1
-
-**Request Headers:**
-
-```
-Content-Type: application/json
-Accept: application/json
-X-API-Key: <api-key>  (or Authorization: Bearer <token>)
-```
-
-### 4.2 Error Handling
+### Error Handling
 
 **HTTP Status Codes:**
 
@@ -335,16 +1287,11 @@ X-API-Key: <api-key>  (or Authorization: Bearer <token>)
 }
 ```
 
-**Error Handling Best Practices:**
+---
 
-1. Return specific error messages that help diagnose the issue
-2. Never expose internal implementation details in error messages
-3. Log detailed errors server-side for debugging
-4. Use 404 for missing ElementIds, not 400
+### Pagination
 
-### 4.3 Pagination Strategy
-
-For endpoints returning arrays, implementations MAY support pagination:
+For endpoints returning arrays, implementations SHOULD support pagination.
 
 **Offset/Limit (Simple):**
 
@@ -362,651 +1309,6 @@ GET /objects?offset=100&limit=50
   "limit": 50
 }
 ```
-
-**Cursor-Based (Recommended for large datasets):**
-
-```
-GET /objects?cursor=eyJpZCI6MTAwfQ&limit=50
-```
-
-**Response:**
-
-```json
-{
-  "items": [...],
-  "nextCursor": "eyJpZCI6MTUwfQ",
-  "hasMore": true
-}
-```
-
-### 4.4 Filtering and Query Parameters
-
-**Standard Query Parameters:**
-
-| Endpoint | Parameter | Description |
-|----------|-----------|-------------|
-| `/objecttypes` | `namespaceUri` | Filter by namespace |
-| `/objects` | `typeId` | Filter by object type |
-| `/objects` | `includeMetadata` | Include optional metadata |
-| `/objects/{id}/related` | `relationshiptype` | Filter by relationship type |
-| `/objects/{id}/value` | `maxDepth` | Control composition recursion |
-| `/objects/{id}/history` | `startTime`, `endTime` | Time range filter |
-
-**Parameter Handling:**
-
-- Unknown parameters SHOULD be ignored (forward compatibility)
-- Invalid parameter values MUST return 400 Bad Request
-- Parameters are case-sensitive
-
-### 4.5 Endpoint Implementation Details
-
-#### 4.5.1 GET /namespaces
-
-**Requirements:**
-
-- MUST return all registered namespaces
-- Each namespace MUST have `uri` and `displayName`
-- Response MUST be an array (empty array if no namespaces)
-
-#### 4.5.2 GET /objecttypes
-
-**Requirements:**
-
-- MUST return all type definitions
-- MAY filter by `namespaceUri` query parameter
-- Each type MUST have `elementId`, `displayName`, `namespaceUri`, `schema`
-
-#### 4.5.3 GET /objects
-
-**Requirements:**
-
-- MUST return array of instances
-- MAY filter by `typeId` query parameter
-- When `includeMetadata=false` (default), return minimal fields only
-- Performance: Consider pagination for large datasets
-
-#### 4.5.4 GET /objects/{elementId}/related
-
-**Requirements:**
-
-- MUST return array of related objects
-- If `relationshiptype` not specified, return ALL related objects
-- Include `relationshipType` and `relationshipTypeInverse` in response
-- Return empty array if no relationships exist
-
-#### 4.5.5 GET /objects/{elementId}/value
-
-**Requirements:**
-
-- MUST return current value in VQT format
-- MUST support `maxDepth` parameter
-- MUST return 404 if ElementId doesn't exist
-- Include `isComposition` in response for client awareness
-
-#### 4.5.6 GET /objects/{elementId}/history
-
-**Requirements:**
-
-- MUST return array of historical VQT values
-- MUST support `startTime` and `endTime` filtering
-- MUST support `maxDepth` parameter
-- If no time range specified, return all available history
-- Consider limiting response size with pagination
-
-#### 4.5.7 PUT /objects/{elementId}/value
-
-**Requirements (if implemented):**
-
-- MUST accept any JSON value
-- MUST return success/failure indication
-- MAY write back to control systems (with security considerations)
-- MUST return 501 if not implemented
-
-#### 4.5.8 PUT /objects/{elementId}/history
-
-**Requirements (if implemented):**
-
-- MUST accept timestamp + value pairs
-- SHOULD implement audit logging for historical changes
-- MUST return 501 if not implemented
-
----
-
-## 5. Subscription System
-
-### 5.1 Overview
-
-The subscription system enables real-time data delivery to clients. It supports two delivery modes:
-
-| Mode | Name | Delivery | Use Case |
-|------|------|----------|----------|
-| streaming | At Most Once | SSE streaming | Real-time dashboards |
-| sync | Exactly Once | Polling | Reliable data collection |
-
-### 5.2 Streaming: At Most Once (SSE Streaming)
-
-**How it works:**
-
-1. Client creates subscription via `POST /subscriptions`
-2. Client registers items via `POST /subscriptions/{id}/register`
-3. Client opens SSE stream via `GET /subscriptions/{id}/stream`
-4. Server pushes updates as they occur
-5. No delivery guarantee - if client disconnects, updates are lost (streaming mode)
-
-**Connection Management:**
-
-```
-Client                                Server
-  |                                     |
-  |--- POST /subscriptions ------------>|
-  |<-- { subscriptionId: "123" } -------|
-  |                                     |
-  |--- POST /subscriptions/123/register |
-  |<-- { message: "Registered" } -------|
-  |                                     |
-  |--- GET /subscriptions/123/stream -->|
-  |<-- SSE: [{"elementId": "s1", ...}]  |
-  |<-- SSE: [{"elementId": "s2", ...}]  |
-  |<-- ...ongoing stream...             |
-```
-
-**SSE Format:**
-
-Each SSE message is a JSON array containing one or more updates:
-
-```
-[{"elementId": "sensor-001", "value": 72.5, "quality": "Good", "timestamp": "2025-01-08T10:30:00Z"}]
-```
-
-**Heartbeat/Keepalive:**
-
-Implementations SHOULD send periodic keepalive messages to detect disconnected clients:
-
-```
-[{"heartbeat": true, "timestamp": "2025-01-08T10:30:00Z"}]
-```
-
-Recommended interval: 30 seconds
-
-**Reconnection Handling:**
-
-- When client reconnects, subscription state persists
-- Updates during disconnection are lost (streaming mode guarantee)
-- Client must call `/stream` again to resume
-- Previous stream connection is invalidated
-
-### 5.3 Sync: Exactly Once (Polling)
-
-**How it works:**
-
-1. Client creates subscription via `POST /subscriptions`
-2. Client registers items via `POST /subscriptions/{id}/register`
-3. Server queues updates as they occur
-4. Client polls via `POST /subscriptions/{id}/sync`
-5. Server returns and clears queued updates
-6. Guaranteed delivery - updates persist until acknowledged
-
-**Polling Flow:**
-
-```
-Client                                Server
-  |                                     |
-  |--- POST /subscriptions ------------>|
-  |<-- { subscriptionId: "123" } -------|
-  |                                     |
-  |--- POST /subscriptions/123/register |
-  |<-- { message: "Registered" } -------|
-  |                                     |
-  |                     [Server queues updates]
-  |                                     |
-  |--- POST /subscriptions/123/sync --->|
-  |<-- [update1, update2, update3] -----|
-  |                     [Queue cleared] |
-  |                                     |
-  |--- POST /subscriptions/123/sync --->|
-  |<-- [] (empty - no new updates) -----|
-```
-
-**Message Persistence Requirements:**
-
-- Updates MUST be queued until client calls `/sync`
-- Queue MUST have a maximum size (recommended: 1000 items)
-- When queue is full, oldest items MUST be evicted (FIFO)
-- Only the most recent value per element is required
-
-**Acknowledgment Semantics:**
-
-- Calling `/sync` implicitly acknowledges previous updates
-- Updates are removed from queue after successful `/sync` response
-- If `/sync` fails, updates remain in queue
-
-**Queue Management:**
-
-```python
-# Recommended queue behavior
-MAX_QUEUE_SIZE = 1000
-
-def add_update(queue, update):
-    if len(queue) >= MAX_QUEUE_SIZE:
-        queue.pop(0)  # Remove oldest (FIFO)
-    queue.append(update)
-
-def sync(queue):
-    updates = queue.copy()
-    queue.clear()
-    return updates
-```
-
-### 5.4 MonitoredItems Lifecycle
-
-**Registration:**
-
-```json
-POST /subscriptions/{id}/register
-{
-  "elementIds": ["sensor-001", "sensor-002"],
-  "maxDepth": 1
-}
-```
-
-- Registration is additive (multiple calls add more items)
-- Invalid ElementIds return 404
-- `maxDepth` applies to all items in this registration
-
-**Unregistration:**
-
-```json
-POST /subscriptions/{id}/unregister
-{
-  "elementIds": ["sensor-001"],
-  "maxDepth": 1
-}
-```
-
-- Silently ignores ElementIds not in subscription
-- `maxDepth` determines which child items to also remove
-
-**Subscription Deletion:**
-
-```
-DELETE /subscriptions/{id}
-```
-
-- Removes all monitored items
-- Closes any active SSE stream
-- Releases server resources
-
-### 5.5 Update Propagation Timing
-
-**Expected Behavior:**
-
-- Updates SHOULD be delivered within 100ms of data source change
-- SSE streams SHOULD push updates immediately
-- Sync queues may batch updates for efficiency
-
-**Composition Elements:**
-
-When monitoring a composition element with `maxDepth > 1`:
-
-- Update triggered when any component changes
-- Update includes full recursive value structure
-- Implementations MAY debounce rapid component changes
-
----
-
-## 6. Architecture Recommendations
-
-*This section is informative (non-normative).*
-
-### 6.1 Data Source Abstraction Pattern
-
-**Recommended Architecture:**
-
-```
-┌─────────────────────────────────────────────────┐
-│                  I3X API Server                 │
-├─────────────────────────────────────────────────┤
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │ Routers  │ │ Models   │ │ Subscription Mgr │ │
-│  └────┬─────┘ └──────────┘ └────────┬─────────┘ │
-│       │                             │           │
-│  ┌────▼─────────────────────────────▼─────┐     │
-│  │         Data Source Interface          │     │
-│  │  (Abstract: get_instances, get_values) │     │
-│  └────────────────┬───────────────────────┘     │
-└───────────────────┼─────────────────────────────┘
-                    │
-    ┌───────────────┼───────────────┐
-    │               │               │
-┌───▼───┐     ┌─────▼─────┐    ┌────▼────┐
-│ Mock  │     │   MQTT    │    │ OPC UA  │
-│Source │     │  Source   │    │ Source  │
-└───────┘     └───────────┘    └─────────┘
-```
-
-**Benefits:**
-
-- Routers never import data sources directly
-- Easy to add new data source types
-- Enables multi-source routing for performance
-
-### 6.2 Suggested Internal Interfaces
-
-```python
-from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, Callable
-
-class I3XDataSource(ABC):
-    """Abstract interface for I3X data sources"""
-
-    @abstractmethod
-    def start(self, update_callback: Optional[Callable] = None) -> None:
-        """Initialize and start the data source"""
-        pass
-
-    @abstractmethod
-    def stop(self) -> None:
-        """Stop and cleanup the data source"""
-        pass
-
-    @abstractmethod
-    def get_namespaces(self) -> List[Dict[str, Any]]:
-        """Return array of Namespaces"""
-        pass
-
-    @abstractmethod
-    def get_object_types(self, namespace_uri: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Return array of Type definitions"""
-        pass
-
-    @abstractmethod
-    def get_instances(self, type_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Return array of instances"""
-        pass
-
-    @abstractmethod
-    def get_instance_by_id(self, element_id: str) -> Optional[Dict[str, Any]]:
-        """Return instance by ElementId"""
-        pass
-
-    @abstractmethod
-    def get_instance_values_by_id(
-        self,
-        element_id: str,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        max_depth: int = 1,
-        return_history: bool = False
-    ) -> Optional[Dict[str, Any]]:
-        """Return instance values with optional recursion"""
-        pass
-
-    @abstractmethod
-    def get_related_instances(
-        self,
-        element_id: str,
-        relationship_type: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Return related objects"""
-        pass
-
-    @abstractmethod
-    def update_instance_value(self, element_id: str, value: Any) -> Dict[str, Any]:
-        """Update value for element"""
-        pass
-```
-
-### 6.3 Thread Safety Considerations
-
-**Subscription System:**
-
-- Subscription list access must be thread-safe
-- Update callbacks may be invoked from multiple threads
-- SSE streams run in async context; queue access needs synchronization
-
-**Recommended Patterns:**
-
-```python
-import threading
-from collections import defaultdict
-
-class SubscriptionManager:
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._subscriptions = {}
-
-    def add_subscription(self, sub_id, subscription):
-        with self._lock:
-            self._subscriptions[sub_id] = subscription
-
-    def get_subscription(self, sub_id):
-        with self._lock:
-            return self._subscriptions.get(sub_id)
-
-    def route_update(self, element_id, value):
-        with self._lock:
-            subs = list(self._subscriptions.values())
-        for sub in subs:
-            if element_id in sub.monitored_items:
-                sub.queue_update(element_id, value)
-```
-
-### 6.4 Caching Strategies
-
-**Type/Namespace Caching:**
-
-- Types and namespaces change infrequently
-- Cache on startup, refresh periodically or on-demand
-- Consider cache invalidation on configuration changes
-
-**Instance Metadata Caching:**
-
-- Cache instance metadata (not values)
-- Values should always be fetched fresh
-- Use LRU cache with reasonable TTL
-
-**Value Caching:**
-
-- Generally avoid caching values
-- If caching, use very short TTL (< 1 second)
-- Consider caching only for sync polling batching
-
-### 6.5 Performance Guidelines
-
-**Response Time Targets:**
-
-| Operation | Target | Maximum |
-|-----------|--------|---------|
-| Exploratory (GET /objects) | < 100ms | 5s |
-| Current Value (GET /value) | < 50ms | 1s |
-| Historical Value (GET /history) | < 500ms | 300s |
-| Subscription Update Delivery | < 100ms | 1s |
-
-**Optimization Strategies:**
-
-1. **Pre-fetch address space**: Load types, namespaces on startup
-2. **Connection pooling**: Reuse connections to data sources
-3. **Batch operations**: Combine multiple value fetches
-4. **Async I/O**: Use async for SSE streams and data source calls
-5. **Index by ElementId**: O(1) lookup for instances
-
----
-
-## 7. Security
-
-### 7.1 Transport Encryption
-
-**Requirements:**
-
-- Implementations MUST require encrypted transport (HTTPS) in production
-- TLS 1.2 or higher SHOULD be used
-- Self-signed certificates MAY be used for development only
-
-### 7.2 Authentication Methods
-
-**API Key (Required Minimum):**
-
-```
-X-API-Key: sk_live_abc123...
-```
-
-- MUST be transmitted over HTTPS only
-- SHOULD be rotatable without service interruption
-- SHOULD have configurable expiration
-
-**JWT/OAuth (Optional):**
-
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
-```
-
-- MAY replace or supplement API keys
-- Enables fine-grained authorization
-- Supports token refresh without re-authentication
-
-### 7.3 Authorization Patterns
-
-**Recommended Authorization Model:**
-
-| Permission | Description |
-|------------|-------------|
-| `read:exploratory` | Browse namespaces, types, instances |
-| `read:values` | Query current and historical values |
-| `write:values` | Update current values |
-| `write:history` | Update historical values |
-| `manage:subscriptions` | Create/delete subscriptions |
-
-**Implementation:**
-
-- Check permissions on every request
-- Return 403 Forbidden for authorization failures
-- Log authorization failures for security monitoring
-
-### 7.4 Input Validation
-
-**ElementId Validation:**
-
-- Validate format before database lookup
-- Prevent injection attacks (SQL, NoSQL, command)
-- Limit maximum length (recommended: 256 characters)
-
-**Query Parameter Validation:**
-
-- Validate `maxDepth` is non-negative integer
-- Validate `startTime`/`endTime` are valid RFC 3339
-- Sanitize `namespaceUri` and `typeId` for injection
-
-**Request Body Validation:**
-
-- Validate JSON structure matches expected schema
-- Limit request body size (recommended: 1MB)
-- Validate array lengths for batch operations
-
----
-
-## 8. Compliance Testing
-
-### 8.1 Test Suite Overview
-
-The compliance test suite (`compliance/`) validates RFC 001 conformance:
-
-```
-compliance/
-├── README.md           # Test runner instructions
-├── test_runner.py      # Python test runner
-├── exploratory/        # RFC 4.1.x tests
-├── values/             # RFC 4.2.1-4.2.2 tests
-└── subscriptions/      # RFC 4.2.3 tests
-```
-
-### 8.2 Running Compliance Tests
-
-```bash
-cd spec/compliance
-python test_runner.py --base-url http://localhost:8080
-```
-
-**Options:**
-
-```
---base-url URL      Base URL of the I3X server (required)
---category NAME     Run only specific category (exploratory, values, subscriptions)
---required-only     Run only required tests (skip optional)
---verbose          Show detailed test output
-```
-
-### 8.3 Test Categories
-
-| Category | Required | Tests |
-|----------|----------|-------|
-| exploratory | Yes | Namespaces, types, instances, relationships |
-| values | Partially | Current value (req), history (opt), updates (opt) |
-| subscriptions | Partially | Create/delete (req), streaming/sync (opt) |
-
-### 8.4 Certification Levels
-
-| Level | Requirements |
-|-------|--------------|
-| **Core** | All required exploratory + current value tests pass |
-| **Extended** | Core + historical value + subscription tests pass |
-| **Full** | Extended + value update tests pass |
-
----
-
-## Appendix A: Quick Reference
-
-### A.1 Endpoint Summary
-
-| Method | Endpoint | RFC | Required |
-|--------|----------|-----|----------|
-| GET | /namespaces | 4.1.1 | Yes |
-| GET | /objecttypes | 4.1.3 | Yes |
-| GET | /objecttypes/{id} | 4.1.2 | Yes |
-| GET | /relationshiptypes | 4.1.4 | Yes |
-| GET | /relationshiptypes/{id} | 4.1.4 | Yes |
-| GET | /objects | 4.1.5 | Yes |
-| GET | /objects/{id} | 4.1.7 | Yes |
-| GET | /objects/{id}/related | 4.1.6 | Yes |
-| GET | /objects/{id}/value | 4.2.1.1 | Yes |
-| GET | /objects/{id}/history | 4.2.1.2 | No |
-| PUT | /objects/{id}/value | 4.2.2.1 | No |
-| PUT | /objects/{id}/history | 4.2.2.2 | No |
-| POST | /subscriptions | 4.2.3.1 | No |
-| GET | /subscriptions/{id} | - | No |
-| DELETE | /subscriptions/{id} | 4.2.3.5 | No |
-| POST | /subscriptions/{id}/register | 4.2.3.2 | No |
-| POST | /subscriptions/{id}/unregister | 4.2.3.3 | No |
-| GET | /subscriptions/{id}/stream | 4.2.3.2 | No |
-| POST | /subscriptions/{id}/sync | 4.2.3.4 | No |
-
-### A.2 Common Response Codes
-
-| Code | Meaning |
-|------|---------|
-| 200 | Success |
-| 400 | Invalid request |
-| 401 | Authentication required |
-| 403 | Not authorized |
-| 404 | Not found |
-| 500 | Server error |
-| 501 | Not implemented |
-
-### A.3 Quality Values
-
-| Value | Meaning |
-|-------|---------|
-| Good | Valid, current |
-| GoodNoData | Connected, no data |
-| Bad | Invalid/failed |
-| Uncertain | Unknown quality |
-
----
-
-## Document History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2025-01-27 | Initial release |
 
 ---
 
