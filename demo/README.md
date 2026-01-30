@@ -14,17 +14,17 @@ i3X Implementations must support Hierarchical Relationships and should support C
 
 This relationship type is commonly used in an ISA-95 asset hierarchy. UNS implementations using MQTT also often naturally fall into this pattern due to the hierarchical nature of the topic structure.
 
-Hierarchical relationships are used to illustrate how an object is related to other objects: each child object may have a single parent; each parent object may have many child objects.
+Hierarchical relationships are used to model how an object is externally related to other objects: each child object may have a single parent; each parent object may have many child objects.
 
 In a manufacturing operation, a "Plant" object may have many "Lines". What's key is that a hierarchical relationship is between two independent objects.
 
 ### Composition Relationships (Recommended)
 
-This relationship type is when an object typically requires another object as part of its definition. A machine that cannot function without an internal component would usually be a composition. However, an information model may still need to identify the internal component, so its data is still defined as a separate, sub-object of the parent machine.
+Composition relationships are used to model how an object is internally organized. A machine that cannot function without an internal component may list that component's data directly -- but an information model may still need to identify the internal component independently. In this case, we use composition to define separate, sub-objects of the parent machine.
 
 Composition may also be known as encapsulation. Encapsulation is an important Object Oriented Programming concept that indicates independence of, and sometimes the hiding of, a structure. Think of a person: we interact with each other as whole individuals, but a surgeon needs access to internal organs. Composition relationships work the same way — most consumers see the whole object, but specialists can access its internal parts.
 
-When modeling information, its important to be able to express an composition relationship between two objects to indicate how objects are encapsulated.
+When modeling information, its important to be able to express a composition relationship between two or more objects to indicate how objects are encapsulated.
 
 ### Graph Relationships (Optional)
 
