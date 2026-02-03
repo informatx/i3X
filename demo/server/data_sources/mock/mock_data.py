@@ -131,7 +131,6 @@ I3X_DATA = {
             "records": [
                 {
                     "value": {
-                        "timestamp": "2025-10-29T18:20:44.779036+00:00",
                         "description": "Pump is in maintenance",
                         "color": "#800080",
                         "type": {
@@ -156,7 +155,6 @@ I3X_DATA = {
                 },
                 {
                     "value": {
-                        "timestamp": "2025-10-28T18:20:44.779036+00:00",
                         "description": "Pump is in operation",
                         "color": "#00FF00",
                         "type": {
@@ -179,7 +177,6 @@ I3X_DATA = {
                 },
                 {
                     "value": {
-                        "timestamp": "2025-10-27T18:20:44.779036+00:00",
                         "description": "Pump is in operation",
                         "color": "#FFFF00",
                         "type": {
@@ -211,7 +208,7 @@ I3X_DATA = {
             # This element has related data, but that data is not a part of the definition of this data, so it is not complex
             "isComposition": False,
             "relationships": {
-                "HasParent": "pump-101",
+                "ComponentOf": "pump-101",
                 # Related classes, not a part of the definition of this element. Client can "dig" through HasChildren as needed
                 "HasChildren": [
                     "pump-101-production-product",
@@ -228,6 +225,18 @@ I3X_DATA = {
             "relationships": {
                 "HasParent": "pump-101-production",
             },
+            "records": [
+                {
+                    "value": "Product A",
+                    "quality": "GOOD",
+                    "timestamp": "2025-10-28T18:20:44.779036+00:00",
+                },
+                {
+                    "value": "Product B",
+                    "quality": "GOOD",
+                    "timestamp": "2025-10-28T18:20:44.779036+00:00",
+                },
+            ]
         },
         {
             "elementId": "pump-101-measurements",
@@ -238,7 +247,7 @@ I3X_DATA = {
             # This element has related data, and that data IS a part of the definition of this data, so it IS complex
             "isComposition": True,
             "relationships": {
-                "HasParent": "pump-101",
+                "ComponentOf": "pump-101",
                 "HasComponent": [
                     "pump-101-bearing-temperature",
                 ],

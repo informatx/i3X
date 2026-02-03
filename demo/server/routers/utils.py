@@ -50,7 +50,7 @@ def getSubscriptionValue(instance: Any, record: Any, maxDepth: int = 1, data_sou
         data_source: Data source to fetch recursive values (required if maxDepth != 1)
 
     Returns:
-        Dictionary with elementId and value, optionally with recursive composed values
+        Dictionary with format: {elementId: {data: [VQT], ...children}}
     """
     element_id = instance["elementId"]
 
@@ -58,31 +58,24 @@ def getSubscriptionValue(instance: Any, record: Any, maxDepth: int = 1, data_sou
     should_recurse = (maxDepth == 0 or maxDepth > 1)
     if should_recurse and data_source is not None:
         # Use the data source to get the full recursive value structure
-        recursive_value = data_source.get_instance_values_by_id(
+        return data_source.get_instance_values_by_id(
             element_id,
             maxDepth=maxDepth,
             returnHistory=False
         )
-        return {
-            "elementId": element_id,
-            "value": recursive_value
-        }
 
-    # Otherwise, just return the simple value with metadata
+    # Build VQT object
     actual_value = record.get("value") if isinstance(record, dict) else record
+    vqt = {"value": actual_value}
 
-    updateValue = {
-        "elementId": element_id,
-        "value": actual_value
-    }
-
-    # Include all record-level metadata fields
+    # Include all record-level metadata fields (quality, timestamp, etc.)
     if isinstance(record, dict):
         for key, val in record.items():
             if key != "value":
-                updateValue[key] = val
+                vqt[key] = val
 
-    return updateValue
+    # Return in new format: {elementId: {data: [VQT]}}
+    return {element_id: {"data": [vqt]}}
 
 
     

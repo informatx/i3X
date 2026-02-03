@@ -77,6 +77,7 @@ Key components:
 - `manager.py` - `DataSourceManager` routes operations across multiple data sources
 - `mock/` - Mock data source with simulated manufacturing data and random value updates
 - `mqtt/` - MQTT data source for real-time broker integration
+- `cnc_mock/` - CNC machine mock data source implementing OPC UA CNC profile
 
 **Data Flow:**
 1. Server startup reads `config.json` and creates data source(s) via `DataSourceFactory`
@@ -159,6 +160,19 @@ Returns nested structure with `_value` for own data and child keys for composed 
 - Topic wildcards: `#` (multi-level), `+` (single-level)
 - Converts topic `/` to `_` for API element IDs (e.g., `sensors/temp` → `sensors_temp`)
 - Read-only (no write operations), limited exploratory support
+
+**CNC Mock Data Source** (OPC UA CNC profile):
+```json
+{
+  "data_source": {
+    "type": "cnc-mock",
+    "config": {}
+  }
+}
+```
+- Simulates CNC machine equipment with realistic OPC UA CNC profile data
+- Based on `cesmii.net.profiles.cnc.nodeset2.xml` schema
+- Includes dynamic value updates via background thread
 
 **Multi-Data Source** (advanced):
 ```json
@@ -258,3 +272,5 @@ If QoS0 subscriptions don't receive updates:
 2. Ensure instance has `records` in mock_data.py
 3. Check instance is not marked `"static": true`
 4. Verify subscription's `monitoredItems` includes the elementId
+
+**Important:** Subscriptions do NOT work when `debug: true` in config.json because uvicorn's reload mode breaks the callback threading model. Set `debug: false` for production or when testing subscriptions.

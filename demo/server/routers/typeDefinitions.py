@@ -33,7 +33,7 @@ def query_object_types_by_id(
 
     Request body: {"elementIds": ["...", "..."]}
 
-    Returns array of results, each with success/failure status.
+    Returns array of object types.
     """
     element_ids = request_body.get_element_ids()
     results = []
@@ -42,24 +42,9 @@ def query_object_types_by_id(
         eid_decoded = unquote(eid)
         obj_type = data_source.get_object_type_by_id(eid_decoded)
         if obj_type:
-            results.append({
-                "elementId": eid,
-                "success": True,
-                "data": obj_type
-            })
-        else:
-            results.append({
-                "elementId": eid,
-                "success": False,
-                "error": f"Object type '{eid}' not found"
-            })
+            results.append(obj_type)
 
-    return {
-        "results": results,
-        "totalRequested": len(element_ids),
-        "totalSuccess": sum(1 for r in results if r["success"]),
-        "totalFailed": sum(1 for r in results if not r["success"])
-    }
+    return results
 
 
 # RFC 4.1.4 - Relationship Types
@@ -91,7 +76,7 @@ def query_relationship_types_by_id(
 
     Request body: {"elementIds": ["...", "..."]}
 
-    Returns array of results, each with success/failure status.
+    Returns array of relationship types.
     """
     element_ids = request_body.get_element_ids()
     results = []
@@ -100,21 +85,6 @@ def query_relationship_types_by_id(
         eid_decoded = unquote(eid)
         rel_type = data_source.get_relationship_type_by_id(eid_decoded)
         if rel_type:
-            results.append({
-                "elementId": eid,
-                "success": True,
-                "data": rel_type
-            })
-        else:
-            results.append({
-                "elementId": eid,
-                "success": False,
-                "error": f"Relationship type '{eid}' not found"
-            })
+            results.append(rel_type)
 
-    return {
-        "results": results,
-        "totalRequested": len(element_ids),
-        "totalSuccess": sum(1 for r in results if r["success"]),
-        "totalFailed": sum(1 for r in results if not r["success"])
-    }
+    return results
