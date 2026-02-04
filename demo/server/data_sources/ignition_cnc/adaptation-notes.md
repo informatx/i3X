@@ -103,34 +103,6 @@ The trade-off is compatibility vs. validation. If the source system guarantees t
 
 ---
 
-## Pending Adaptations
-
-### TODO #6: Descriptions
-**Original format:** Descriptions matched OPC UA profile documentation.
-
-**Current implementation:** Kept original descriptions from the provided JSON.
-
-**Considerations:**
-- Minor wording differences exist between original and typical I3X descriptions
-- Descriptions are documentation only, not functional
-- Keeping original preserves traceability to OPC UA source
-
-**Decision needed:** Are the current descriptions adequate, or should they be standardized?
-
----
-
-### #7: `$ref` Pointers - Not Applicable
-**Status:** No issue
-
-This was a false concern. The ignition_cnc data source uses the same schema file reference pattern as the other mock data sources:
-```python
-"schema": "Namespaces/cesmii_cnc.json#types/CNCBaseType"
-```
-
-This file path + JSON pointer approach is loaded at runtime by `_load_schema_definition()` in the data source. The original payload did not use JSON Schema `$ref` within type definitions - it uses `!related` to indicate type composition instead.
-
----
-
 ## Architecture Notes
 
 ### Type-Level vs Instance-Level Relationships
@@ -146,3 +118,34 @@ Our implementation handles this correctly:
 - `!related` passes through in schemas (for documentation)
 - Actual relationships are declared on instances in `ignition_cnc_data.py`
 - The `/objects/related` endpoint queries instance relationships, not type schemas
+
+---
+
+### Missing Instances - Root Cause of Test Failures
+
+The original payload (`travis-payload.json`) contained **only type definitions** - no instances were provided. This is likely why client tests were failing.
+
+**What the original payload had:**
+- Object type schemas with `$ref`, `!related`, `!PropertyName` patterns
+- Detailed type composition embedded in schemas
+
+**What was missing:**
+- Instance objects (actual equipment like `cnc-machine-001`)
+- Instance relationships (`HasComponent`, `HasParent`)
+- Instance values (VQT records)
+
+**Impact on I3X API:**
+| Endpoint | With Types Only | With Types + Instances |
+|----------|-----------------|------------------------|
+| `GET /objecttypes` | Works | Works |
+| `GET /objects` | Empty/fails | Returns instances |
+| `GET /objects/{id}/value` | Fails (nothing to query) | Returns VQT values |
+| Subscriptions | Nothing to monitor | Can monitor instance changes |
+
+**The misunderstanding:** The original developer may have expected the rich type schemas (`$ref`, nested structures, `!related`) to automatically provide or imply instance data. In I3X, types define **structure**, but instances must be explicitly created to hold **actual data**.
+
+**Our solution:** Created mock instances in `ignition_cnc_data.py` with:
+- Instance hierarchy (shop floor → machine → spindles/axes/channels)
+- Explicit relationships on each instance
+- VQT records with simulated values
+- Background updater for live value simulation
