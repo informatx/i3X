@@ -7,6 +7,13 @@
         "description": "Industrial Information Interface eXchange API - RFC 001 Compliant",
         "version": "0.0.1"
     },
+    "_comment_single_source_examples": [
+        "Single data source configuration examples:",
+        "Mock: { \"data_source\": { \"type\": \"mock\", \"config\": {} } }",
+        "CNC Mock: { \"data_source\": { \"type\": \"cnc-mock\", \"config\": {} } }",
+        "Ignition CNC: { \"data_source\": { \"type\": \"ignition-cnc\", \"config\": {} } }",
+        "MQTT: { \"data_source\": { \"type\": \"mqtt\", \"config\": { \"mqtt_endpoint\": \"mqtt://localhost:1883\", \"topics\": [\"#\"] } } }"
+    ],
     "data_sources": {
         "exploratory": {
             "type": "mock",
