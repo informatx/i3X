@@ -305,7 +305,7 @@ Underlying platforms MAY persist data values using any primitive types they wish
 
 #### 5.2.2 Complex Type Definitions
 
-Underlying platforms MUST derive Objects from separately declared definitions (also known as Class, Template or Schema definitions in other environments). In I3X, these definitions are generalized as Type definitions, given first-class treatment, and MUST be serializable to easy-to-consume JSON. Implementing platforms MUST support importing Type definitions from the [OPC UA Part 5 Information Modeling standard](https://reference.opcfoundation.org/Core/Part5/v104/docs/) (IEC62541-5). Implementing platforms MAY support importing Type definitions from the [Asset Administration Shell SubModelTemplate standard](https://www.zvei.org/fileadmin/user_upload/Presse_und_Medien/Publikationen/2020/Dezember/Submodel_Templates_of_the_Asset_Administration_Shell/201117_I40_ZVEI_SG2_Submodel_Spec_ZVEI_Technical_Data_Version_1_1.pdf). Implementing platforms MAY also support an internal Type definition and storage format.
+Underlying platforms MUST derive Objects from separately declared definitions (also known as Class, Template or Schema definitions in other environments). In I3X, these definitions are generalized as Type definitions, given first-class treatment, and MUST be serializable to easy-to-consume JSON. Implementing platforms SHOULD support importing Type definitions from the [OPC UA Part 5 Information Modeling standard](https://reference.opcfoundation.org/Core/Part5/v104/docs/) (IEC62541-5). Implementing platforms MAY support importing Type definitions from the [Asset Administration Shell SubModelTemplate standard](https://www.zvei.org/fileadmin/user_upload/Presse_und_Medien/Publikationen/2020/Dezember/Submodel_Templates_of_the_Asset_Administration_Shell/201117_I40_ZVEI_SG2_Submodel_Spec_ZVEI_Technical_Data_Version_1_1.pdf). Implementing platforms MAY also support an internal Type definition and storage format.
 
 ### 5.3 Security Considerations
 
@@ -337,3 +337,4 @@ Implementations of this API MUST be able to return Historical Value responses wi
 ## 6. Acknowledgements
 
 Unless requested otherwise, contributor names and organizations from private previews of this document will be acknowledged in the public release.
+
