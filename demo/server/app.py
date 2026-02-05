@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.docs import get_redoc_html
 from routers.namespaces import ns
 from routers.typeDefinitions import typeDefinitions
 from routers.objects import explore, query, update
@@ -90,7 +92,59 @@ app = FastAPI(
     ),
     version=app_config.get("version", "1.0.0"),
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
 )
+
+# Mount static files directory
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Serve the favicon."""
+    favicon_path = os.path.join(static_dir, "favicon.png")
+    return FileResponse(favicon_path, media_type="image/png")
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui():
+    """Custom Swagger UI with icon in header."""
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{app.title} - Docs</title>
+        <link rel="icon" type="image/png" href="/static/favicon.png">
+        <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+    </head>
+    <body>
+        <div id="swagger-ui"></div>
+        <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+        <script>
+            SwaggerUIBundle({{
+                url: "{app.openapi_url}",
+                dom_id: '#swagger-ui',
+                presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+                layout: "BaseLayout",
+                defaultModelsExpandDepth: -1
+            }});
+        </script>
+        <script src="/static/swagger-custom.js"></script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+
+@app.get("/redoc", include_in_schema=False)
+async def custom_redoc():
+    """Custom ReDoc with icon in header."""
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - ReDoc",
+    )
 
 # Add CORS middleware to handle cross-origin requests
 app.add_middleware(
