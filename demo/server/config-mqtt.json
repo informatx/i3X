@@ -1,0 +1,19 @@
+{
+  "port": 8080,
+  "host": "0.0.0.0",
+  "debug": false,
+  "app": {
+    "title": "I3X API - MQTT",
+    "description": "Industrial Information Interface eXchange API - MQTT Data Source",
+    "version": "0.0.1"
+  },
+  "data_source": {
+    "type": "mqtt",
+    "config": {
+      "mqtt_endpoint": "mqtt://localhost:1883",
+      "topics": ["#"],
+      "username": "user",
+      "password": "password"
+    }
+  }
+}

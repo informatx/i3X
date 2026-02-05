@@ -133,11 +133,18 @@ class MQTTDataSource(I3XDataSource):
                 self.logger.debug(f"Skipping excluded topic: {msg.topic}")
                 return
                 
-            # Try to parse as JSON, fallback to string
+            # Try to parse as JSON, fallback to string, skip binary
             try:
-                value = json.loads(msg.payload.decode())
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                value = msg.payload.decode()
+                payload_str = msg.payload.decode('utf-8')
+            except UnicodeDecodeError:
+                # Skip binary payloads that can't be decoded as UTF-8
+                self.logger.debug(f"Skipping binary payload on topic: {msg.topic}")
+                return
+
+            try:
+                value = json.loads(payload_str)
+            except json.JSONDecodeError:
+                value = payload_str
 
             # Determine namespace and type for this payload
             namespace_uri = None
