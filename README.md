@@ -1,5 +1,9 @@
 # API (RFC for the Future)
 
+## Status of This Effort
+
+i3X is in a _pre-release_ Alpha state. While the API signature is largely stable, expect significant changes to response structures, and minor changes to method calls over the first quarter of 2026 while we stabilize a 1.0 release. If you want to help, please see [Contributing.md](#Contributing.md)
+
 ## Problem Statement
 The manufacturing information ecosystem benefits from the contributions of many players, over multiple decades of technology evolution. While this diversity creates a lot of platform choice for manufacturers, it has the opposite effect on the creation of app value. Application developers must choose which platforms to build against, and therefore are forced to develop against proprietary, or open but competing, API implementations with no hope of portability between them. Apps create information value by consuming and producing the data available in a platform, and rendering it in ways that are helpful to end users -- analytics, visualization, notification, machine learning... all of these need contextualized data, and all end up abstracted by an underlying platform (be it an Historian, MES, MOM, EMI, or broker or server).
 
