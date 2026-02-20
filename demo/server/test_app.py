@@ -174,8 +174,8 @@ class TestI3XEndpoints(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
     # TODO this probably belongs on the client side and is more than a unit test, placing here so I have a place to test subscriptions
-    def test_qos0_subscription_streaming(self):
-        # Step 1: Create a subscription (no QoS parameter)
+    def test_streaming_subscription(self):
+        # Step 1: Create a subscription
         response = self.client.post("/subscriptions", json={})
         self.assertEqual(response.status_code, 200)
         subscription_id = response.json()["subscriptionId"]
