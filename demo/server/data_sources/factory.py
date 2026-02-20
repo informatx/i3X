@@ -2,6 +2,7 @@ from typing import Dict, Any
 from .data_interface import I3XDataSource
 from .mock.mock_data_source import MockDataSource
 from .mqtt.mqtt_data_source import MQTTDataSource
+from .ignition_cnc.ignition_cnc_data_source import IgnitionCNCDataSource
 from .manager import DataSourceManager
 
 class DataSourceFactory:
@@ -41,6 +42,8 @@ class DataSourceFactory:
         elif data_source_type == "cnc-mock" or data_source_type == "cnc_mock":
             from .cnc_mock.cnc_data_source import CNCDataSource
             return CNCDataSource()
+        elif data_source_type == "ignition-cnc" or data_source_type == "ignition_cnc":
+            return IgnitionCNCDataSource()
         else:
             raise ValueError(f"Unsupported data source type: {data_source_type}")
     
@@ -62,4 +65,4 @@ class DataSourceFactory:
     @staticmethod
     def get_supported_types() -> list:
         """Get list of supported data source types"""
-        return ["mock", "mqtt", "cnc-mock"]
+        return ["mock", "mqtt", "cnc-mock", "ignition-cnc"]
