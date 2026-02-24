@@ -6,9 +6,7 @@ i3X is in a _pre-release_ Alpha state. While the API signature is largely stable
 
 ## What is i3X?
 
-<video width="320" height="240" controls>
-  <source src="https://i3x.dev/video/i3x-explainer-small.mp4" type="video/mp4">
-</video>
+![](https://i3x.dev/video/i3x-explainer-small.mp4)
 
 ## Where to Learn More
 
