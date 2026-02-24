@@ -8,7 +8,7 @@ i3X is in a _pre-release_ Alpha state. While the API signature is largely stable
 
 i3X is a Common API for Contextual Manufacturing Information Platforms. It aims to provide a common interface for a wide array of composable back-end data sources with a unified namespace.
 
-<a href="https://i3x.dev/video/i3x-explainer.mp4"><img src="https://i3x.dev/images/i3XHero.png?1"></a>
+<a href="https://i3x.dev/video/i3x-explainer.mp4"><img src="https://i3x.dev/images/i3XHero.png?1"></a><br>Click to View Video
 
 ## Where to Learn More
 
