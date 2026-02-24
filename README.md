@@ -6,7 +6,7 @@ i3X is in a _pre-release_ Alpha state. While the API signature is largely stable
 
 ## What is i3X?
 
-<a href=""><img src="https://i3x.dev/images/i3XHero.jpg"></a>
+<a href=""><img src="https://i3x.dev/images/i3XHero.png"></a>
 
 ## Where to Learn More
 
