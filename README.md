@@ -1,10 +1,12 @@
-# i3X - A Common API for Contextual Manufacturing Information Platforms
+# i3X - Industrial Information Interoperability eXchange
 
 ## Status of This Effort
 
 i3X is in a _pre-release_ Alpha state. While the API signature is largely stable, expect significant changes to response structures, and minor changes to method calls over the first quarter of 2026 while we stabilize a 1.0 release. If you want to help, please see [Contributing.md](#Contributing.md)
 
 ## What is i3X?
+
+i3X is a Common API for Contextual Manufacturing Information Platforms. It aims to provide a common interface for a wide array of composable back-end data sources with a unified namespace.
 
 <a href="https://i3x.dev/video/i3x-explainer.mp4"><img src="https://i3x.dev/images/i3XHero.png?1"></a>
 
