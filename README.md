@@ -10,6 +10,10 @@ i3X is a Common API for Contextual Manufacturing Information Platforms. It aims 
 
 <a href="https://i3x.dev/video/i3x-explainer.mp4"><img src="https://i3x.dev/images/i3XHero.png?1"><br>Click to View Video</a>
 
+## Who is CESMII?
+
+CESMII is the United States' institute for Smart Manufacturing. We are a not-for-profit consortia of manufacturing ecosystem members focused on improving access to clean, contextual information to help manufacturers make better decisions. Learn more about CESMII at [cesmii.org](https://www.cesmii.org).
+
 ## Where to Learn More
 
 This repo is focused on the development of a specification for the API, including issues, PRs and tasks for the Working Group. This effort is open and collaborative, all are welcome to read and participate -- but this is not the best place to learn the high level details.
