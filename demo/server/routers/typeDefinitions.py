@@ -13,7 +13,10 @@ def get_data_source(request: Request) -> I3XDataSource:
 
 # RFC 4.1.3 - Object Types
 @typeDefinitions.get(
-    "/objecttypes", response_model=List[ObjectType], summary="Get Object Types"
+    "/objecttypes",
+    response_model=List[ObjectType],
+    summary="Get Object Types",
+    operation_id="getObjectTypes",
 )
 def get_object_types(
     namespaceUri: Optional[str] = Query(default=None),
@@ -23,7 +26,11 @@ def get_object_types(
     return data_source.get_object_types(namespaceUri)
 
 # RFC 4.1.2 - Object Type Definition
-@typeDefinitions.post("/objecttypes/query", summary="Query Object Types by ElementId")
+@typeDefinitions.post(
+    "/objecttypes/query",
+    summary="Query Object Types by ElementId",
+    operation_id="queryObjectTypesById",
+)
 def query_object_types_by_id(
     request_body: GetObjectTypesRequest,
     data_source: I3XDataSource = Depends(get_data_source),
@@ -49,7 +56,10 @@ def query_object_types_by_id(
 
 # RFC 4.1.4 - Relationship Types
 @typeDefinitions.get(
-    "/relationshiptypes", response_model=List[RelationshipType], summary="Get Relationship Types"
+    "/relationshiptypes",
+    response_model=List[RelationshipType],
+    summary="Get Relationship Types",
+    operation_id="getRelationshipTypes",
 )
 def get_relationship_types(
     namespaceUri: Optional[str] = Query(default=None),
@@ -66,7 +76,11 @@ def get_relationship_types(
     return relationship_types
 
 # RFC 4.1.4 - Relationship Type
-@typeDefinitions.post("/relationshiptypes/query", summary="Query Relationship Types by ElementId")
+@typeDefinitions.post(
+    "/relationshiptypes/query",
+    summary="Query Relationship Types by ElementId",
+    operation_id="queryRelationshipTypesById",
+)
 def query_relationship_types_by_id(
     request_body: GetRelationshipTypesRequest,
     data_source: I3XDataSource = Depends(get_data_source),

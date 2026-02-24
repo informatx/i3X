@@ -14,7 +14,7 @@ def get_data_source(request: Request) -> I3XDataSource:
     return request.app.state.data_source
 
 # RFC 4.1.1 - Namespaces
-@ns.get("/namespaces", response_model=List[Namespace])
+@ns.get("/namespaces", response_model=List[Namespace], operation_id="getNamespaces")
 def get_namespaces(data_source: I3XDataSource = Depends(get_data_source)):
     """Get all Namespaces"""
     return data_source.get_namespaces()
