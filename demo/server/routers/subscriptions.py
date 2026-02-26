@@ -113,8 +113,8 @@ def create_subscription(request: Request, subscription: CreateSubscriptionReques
 # RFC 4.2.3.2 - Register Monitored Items
 @subs.post(
     "/subscriptions/{subscriptionId}/register",
-    summary="Register Objects",
-    operation_id="registerObjects",
+    summary="Register Monitored Items",
+    operation_id="registerMonitoredItems",
 )
 def register_objects(
     request: Request, subscriptionId: str, req: RegisterMonitoredItemsRequest
@@ -164,8 +164,8 @@ def register_objects(
 # RFC 4.2.3.2 - Unregister Monitored Items
 @subs.post(
     "/subscriptions/{subscriptionId}/unregister",
-    summary="Unregister Objects",
-    operation_id="unregisterObjects",
+    summary="Remove Monitored Items",
+    operation_id="removeMonitoredItems",
 )
 def unregister_objects(
     request: Request, subscriptionId: str, req: RegisterMonitoredItemsRequest
