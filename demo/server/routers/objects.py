@@ -29,7 +29,7 @@ def get_data_source(request: Request) -> I3XDataSource:
 
 
 # RFC 4.1.5 - Instances of an Object Type
-@explore.get("/objects", summary="Get Objects")
+@explore.get("/objects", summary="Get Objects", operation_id="getObjects")
 def get_objects(
     typeId: Optional[str] = Query(default=None),
     includeMetadata: bool = Query(default=False),
@@ -41,7 +41,11 @@ def get_objects(
       
 
 # RFC 4.1.5 - Query Objects by ElementId
-@explore.post("/objects/list", summary="List Objects by ElementId")
+@explore.post(
+    "/objects/list",
+    summary="List Objects by ElementId",
+    operation_id="listObjectsById",
+)
 def query_objects_by_id(
     request_body: GetObjectsRequest,
     data_source: I3XDataSource = Depends(get_data_source),
@@ -64,7 +68,11 @@ def query_objects_by_id(
     return results
 
 # 4.1.6 Objects linked by Relationship Type
-@explore.post("/objects/related", summary="Query Related Objects")
+@explore.post(
+    "/objects/related",
+    summary="Query Related Objects",
+    operation_id="queryRelatedObjects",
+)
 def query_related_objects(
     request_body: GetRelatedObjectsRequest,
     data_source: I3XDataSource = Depends(get_data_source),
@@ -94,7 +102,11 @@ def query_related_objects(
 
 
 # RFC 4.2.1.1 - Object Element LastKnown Value
-@query.post("/objects/value", summary="Query Last Known Values")
+@query.post(
+    "/objects/value",
+    summary="Query Last Known Values",
+    operation_id="queryLastKnownValues",
+)
 def query_last_known_values(
     request_body: GetObjectValueRequest,
     data_source: I3XDataSource = Depends(get_data_source),
@@ -128,7 +140,11 @@ def query_last_known_values(
     return result
 
 # 4.2.2.1 Object Element LastKnownValue
-@update.put("/objects/{elementId}/value", summary="Update Value of Object")
+@update.put(
+    "/objects/{elementId}/value",
+    summary="Update Value of Object",
+    operation_id="updateObjectValue",
+)
 def update_object(
     elementId: str = Path(...),
     body: Any = Body(...),  # Accept any JSON
@@ -140,7 +156,12 @@ def update_object(
 
 
 # RFC 4.2.1.2 - Object Element HistoricalValue
-@query.post("/objects/history", response_model=Any, summary="Query Historical Values")
+@query.post(
+    "/objects/history",
+    response_model=Any,
+    summary="Query Historical Values",
+    operation_id="queryHistoricalValues",
+)
 def query_historical_values(
     request_body: GetObjectHistoryRequest,
     data_source: I3XDataSource = Depends(get_data_source),
@@ -176,7 +197,11 @@ def query_historical_values(
     return result
 
 # RFC 4.2.2.2 - Object Element HistoricalValue
-@update.put("/objects/{elementId}/history", summary="Update Historical Values of Object")
+@update.put(
+    "/objects/{elementId}/history",
+    summary="Update Historical Values of Object",
+    operation_id="updateObjectHistory",
+)
 def update_object_history(elementId: str = Path(...),data_source: I3XDataSource = Depends(get_data_source)):
     """Update the historical values for one or more Objects"""
     raise HTTPException(status_code=501, detail="Operation not implemented")

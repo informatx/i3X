@@ -40,7 +40,12 @@ def get_data_source(request: Request) -> I3XDataSource:
 
 
 # GET /subscriptions - List all subscriptions
-@subs.get("/subscriptions", summary="List Subscriptions", response_model=GetSubscriptionsResponse)
+@subs.get(
+    "/subscriptions",
+    summary="List Subscriptions",
+    response_model=GetSubscriptionsResponse,
+    operation_id="listSubscriptions",
+)
 def get_subscriptions(request: Request):
     """List all subscriptions including their ID and settings (does not include registered objects)"""
     subscriptions = []
@@ -55,7 +60,11 @@ def get_subscriptions(request: Request):
 
 
 # GET /subscriptions/{id} - Get a single subscription with full details
-@subs.get("/subscriptions/{subscriptionId}", summary="Get Subscription")
+@subs.get(
+    "/subscriptions/{subscriptionId}",
+    summary="Get Subscription",
+    operation_id="getSubscription",
+)
 def get_subscription(request: Request, subscriptionId: str):
     """Get a single subscription including settings and registered objects"""
     sub = next(
@@ -79,7 +88,12 @@ def get_subscription(request: Request, subscriptionId: str):
 
 
 # RFC 4.2.3.1 - Create Subscription
-@subs.post("/subscriptions", summary="Create Subscription", response_model=CreateSubscriptionResponse)
+@subs.post(
+    "/subscriptions",
+    summary="Create Subscription",
+    response_model=CreateSubscriptionResponse,
+    operation_id="createSubscription",
+)
 def create_subscription(request: Request, subscription: CreateSubscriptionRequest):
     """Create a new subscription. Monitoring starts when objects are registered via /register"""
 
@@ -97,7 +111,11 @@ def create_subscription(request: Request, subscription: CreateSubscriptionReques
 
 
 # RFC 4.2.3.2 - Register Monitored Items
-@subs.post("/subscriptions/{subscriptionId}/register", summary="Register Objects",)
+@subs.post(
+    "/subscriptions/{subscriptionId}/register",
+    summary="Register Monitored Items",
+    operation_id="registerMonitoredItems",
+)
 def register_objects(
     request: Request, subscriptionId: str, req: RegisterMonitoredItemsRequest
 ):
@@ -144,7 +162,11 @@ def register_objects(
     }
 
 # RFC 4.2.3.2 - Unregister Monitored Items
-@subs.post("/subscriptions/{subscriptionId}/unregister", summary="Unregister Objects",)
+@subs.post(
+    "/subscriptions/{subscriptionId}/unregister",
+    summary="Remove Monitored Items",
+    operation_id="removeMonitoredItems",
+)
 def unregister_objects(
     request: Request, subscriptionId: str, req: RegisterMonitoredItemsRequest
 ):
@@ -185,7 +207,11 @@ def unregister_objects(
     }
 
 # GET /subscriptions/{id}/stream - Open SSE stream
-@subs.get("/subscriptions/{subscriptionId}/stream", summary="Stream Values (SSE)",)
+@subs.get(
+    "/subscriptions/{subscriptionId}/stream",
+    summary="Stream Values (SSE)",
+    operation_id="streamSubscription",
+)
 async def stream_subscription(request: Request, subscriptionId: str):
     """Open a Server-Sent Events (SSE) stream. Switches from queue mode to streaming mode."""
     sub = next(
@@ -239,7 +265,11 @@ async def stream_subscription(request: Request, subscriptionId: str):
     return sub.streaming_response
 
 # RFC 4.2.3.3 Sync
-@subs.post("/subscriptions/{subscriptionId}/sync", summary="Sync Values")
+@subs.post(
+    "/subscriptions/{subscriptionId}/sync",
+    summary="Sync Values",
+    operation_id="syncSubscription",
+)
 def sync_subscription(request: Request, subscriptionId: str):
     """Return and clear queued updates. Works when SSE stream is not active.
 
@@ -265,7 +295,11 @@ def sync_subscription(request: Request, subscriptionId: str):
 
 
 # 4.2.3.4 Unsubscribe by SubscriptionId
-@subs.delete("/subscriptions/{subscriptionId}", summary="Delete Subscription",)
+@subs.delete(
+    "/subscriptions/{subscriptionId}",
+    summary="Delete Subscription",
+    operation_id="deleteSubscription",
+)
 def delete_subscription(request: Request, subscriptionId: str):
     removed = []
     not_found = []
