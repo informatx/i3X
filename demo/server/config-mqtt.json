@@ -10,10 +10,10 @@
   "data_source": {
     "type": "mqtt",
     "config": {
-      "mqtt_endpoint": "mqtt://localhost:1883",
+      "mqtt_endpoint": "mqtt://i3x.cesmii.net:1883",
       "topics": ["#"],
-      "username": "user",
-      "password": "password"
+      "username": "cesmiiuser",
+      "password": "i3x"
     }
   }
 }
